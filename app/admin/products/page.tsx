@@ -96,6 +96,34 @@ export default function AdminProductsPage() {
     const [category, setCategory] = useState(p.category);
     const [subCategory, setSubCategory] = useState(p.subCategory ?? "");
     const [visible, setVisible] = useState(p.visible);
+    const [imageUrl, setImageUrl] = useState(p.imageUrl ?? "");
+    const [uploading, setUploading] = useState(false);
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setUploading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("productId", p.id);
+
+      try {
+        const res = await fetch("/api/admin/upload", {
+          method: "POST",
+          body: formData,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setImageUrl(data.url);
+          setItems((prev) => prev.map((item) => item.id === p.id ? { ...item, imageUrl: data.url } : item));
+        }
+      } catch {
+        // ignore
+      } finally {
+        setUploading(false);
+      }
+    };
 
     const save = () => {
       patchProduct(p.id, {
@@ -105,18 +133,38 @@ export default function AdminProductsPage() {
         category,
         subCategory,
         visible,
+        imageUrl: imageUrl || null,
       } as Partial<Product>);
     };
 
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
         <div className="flex justify-between items-start">
-          <span className="text-xs text-[#fa6e83]">{p.hash}</span>
+          <span className="text-xs text-[#326b83]">{p.hash}</span>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={visible} onChange={(e)=>setVisible(e.target.checked)} className="w-4 h-4 text-[#fa6e83]" />
             <span className="text-xs text-black">{visible ? "Visible" : "Oculto"}</span>
           </label>
         </div>
+        
+        <div className="h-24 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center relative">
+          {uploading ? (
+            <span className="text-xs text-black">Subiendo...</span>
+          ) : imageUrl ? (
+            <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <label className="cursor-pointer text-xs text-black">
+              + Agregar imagen
+              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+            </label>
+          )}
+        </div>
+        {imageUrl && !uploading && (
+          <label className="block text-center text-xs text-[#fa6e83] cursor-pointer">
+            Cambiar imagen
+            <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+          </label>
+        )}
         
         <div>
           <label className="text-xs text-black">Nombre</label>
