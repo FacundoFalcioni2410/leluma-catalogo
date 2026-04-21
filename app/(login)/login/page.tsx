@@ -33,21 +33,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#faf8f3]">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-semibold text-[#8b5e3c] mb-6 text-center">
+    <div className="min-h-screen flex items-center justify-center bg-[#326b83]">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h1 className="text-2xl font-semibold text-[#326b83] mb-6 text-center">
           Admin Leluma
         </h1>
         
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm">
+          <div className="bg-red-100 text-red-600 p-3 rounded mb-4 text-sm">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-black mb-1">
               Email
             </label>
             <input
@@ -55,12 +55,12 @@ export default function LoginPage() {
               name="email"
               id="email"
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8b5e3c]"
+              className="w-full px-3 py-2 border border-[#326b83] rounded-md focus:outline-none focus:ring-2 focus:ring-[#fa6e83]"
             />
           </div>
           
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-black mb-1">
               Contraseña
             </label>
             <input
@@ -68,14 +68,14 @@ export default function LoginPage() {
               name="password"
               id="password"
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8b5e3c]"
+              className="w-full px-3 py-2 border border-[#326b83] rounded-md focus:outline-none focus:ring-2 focus:ring-[#fa6e83]"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#8b5e3c] text-white py-2 px-4 rounded-md hover:bg-[#7a5235] disabled:opacity-50 transition-colors"
+            className="w-full bg-[#fa6e83] text-white py-2 px-4 rounded-md hover:bg-[#e55a72] disabled:opacity-50 transition-colors"
           >
             {loading ? "Ingresando..." : "Iniciar sesión"}
           </button>
