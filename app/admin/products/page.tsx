@@ -147,24 +147,21 @@ export default function AdminProductsPage() {
           </label>
         </div>
         
-        <div className="h-24 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center relative">
+        <label className="h-24 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center relative cursor-pointer group">
           {uploading ? (
             <span className="text-xs text-black">Subiendo...</span>
           ) : imageUrl ? (
-            <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+            <>
+              <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+              <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs">
+                Cambiar imagen
+              </span>
+            </>
           ) : (
-            <label className="cursor-pointer text-xs text-black">
-              + Agregar imagen
-              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-            </label>
+            <span className="text-xs text-black">+ Agregar imagen</span>
           )}
-        </div>
-        {imageUrl && !uploading && (
-          <label className="block text-center text-xs text-[#fa6e83] cursor-pointer">
-            Cambiar imagen
-            <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-          </label>
-        )}
+          <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+        </label>
         
         <div>
           <label className="text-xs text-black">Nombre</label>
