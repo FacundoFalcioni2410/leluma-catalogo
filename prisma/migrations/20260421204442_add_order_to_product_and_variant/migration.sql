@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "Product"
+ADD COLUMN "order" INTEGER NOT NULL DEFAULT 0;
+
+-- AlterTable
+ALTER TABLE "Variant"
+ADD COLUMN "order" INTEGER NOT NULL DEFAULT 0;

@@ -15,21 +15,42 @@ model User {
   createdAt DateTime @default(now())
 }
 
+model Category {
+  id        String            @id @default(cuid())
+  name      String
+  parentId  String?
+  parent    Category?         @relation("CategoryChildren", fields: [parentId], references: [id])
+  children  Category[]        @relation("CategoryChildren")
+  products  ProductCategory[]
+  createdAt DateTime          @default(now())
+}
+
+model ProductCategory {
+  productId  String
+  categoryId String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+}
+
 model Product {
-  id          String    @id @default(cuid())
-  hash        String    @unique
-  name        String
-  price       Float
-  offerPrice  Float?
-  description String?
-  category    String
-  subCategory String?
+  id           String            @id @default(cuid())
+  hash         String            @unique
+  name         String
+  price        Float
+  offerPrice   Float?
+  description  String?
+  category     String
+  subCategory  String?
   variantLabel String?
-  visible     Boolean   @default(true)
-  imageUrl    String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  variants    Variant[]
+  visible      Boolean           @default(true)
+  imageUrl     String?
+  order        Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  variants     Variant[]
+  categories   ProductCategory[]
 }
 
 model Variant {
@@ -39,5 +60,6 @@ model Variant {
   option    String
   price     Float?
   stock     Int     @default(0)
+  order     Int     @default(0)
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }

@@ -10,16 +10,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   }
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
-  if (!rateLimit(ip, 30, 60000)) {
+  if (process.env.NODE_ENV !== "development" && !rateLimit(ip, 30, 60000)) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
   const { id } = await context.params;
   const body = await req.json();
-  const { name, price, description, category, subCategory, visible, imageUrl, variants } = body;
+  const { name, price, description, category, subCategory, order, visible, imageUrl, variants } = body;
 
   try {
-    console.log("Updating product:", id, "with data:", { name, price, category, subCategory, visible });
+    console.log("Updating product:", id, "with data:", { name, price, category, subCategory, order, visible });
     
     await prisma.$transaction(async (tx) => {
       await tx.product.update({
@@ -30,6 +30,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           description: description ?? null,
           category: category ?? undefined,
           subCategory: subCategory ?? null,
+          order: order ?? undefined,
           visible: visible ?? undefined,
           imageUrl: imageUrl ?? undefined,
         },

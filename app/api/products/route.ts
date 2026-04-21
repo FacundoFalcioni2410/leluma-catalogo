@@ -4,8 +4,7 @@ import { prisma } from "@/app/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
-  
-  if (!rateLimit(ip, 60, 60000)) {
+  if (process.env.NODE_ENV !== "development" && !rateLimit(ip, 60, 60000)) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
@@ -27,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   const [count, items] = await Promise.all([
     prisma.product.count({ where }),
-    prisma.product.findMany({ where, include: { variants: true }, take: perPage, skip: (page - 1) * perPage, orderBy: { createdAt: "desc" } }),
+    prisma.product.findMany({ where, include: { variants: true }, take: perPage, skip: (page - 1) * perPage, orderBy: [{ order: "desc" }, { createdAt: "desc" }] }),
   ]);
 
   const data = items.map((p) => ({
