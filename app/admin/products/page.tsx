@@ -89,6 +89,8 @@ export default function AdminProductsPage() {
     }
   };
 
+  type VariantDraft = { name: string; option: string; price: number | null; stock: number };
+
   const ProductCard: React.FC<{ p: Product }> = ({ p }) => {
     const [name, setName] = useState(p.name);
     const [price, setPrice] = useState(p.price);
@@ -98,6 +100,10 @@ export default function AdminProductsPage() {
     const [visible, setVisible] = useState(p.visible);
     const [imageUrl, setImageUrl] = useState(p.imageUrl ?? "");
     const [uploading, setUploading] = useState(false);
+    const [variants, setVariants] = useState<VariantDraft[]>(
+      p.variants.map((v) => ({ name: v.name, option: v.option, price: v.price, stock: v.stock }))
+    );
+    const [variantsExpanded, setVariantsExpanded] = useState(false);
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -125,6 +131,15 @@ export default function AdminProductsPage() {
       }
     };
 
+    const updateVariant = (i: number, field: keyof VariantDraft, value: string | number | null) =>
+      setVariants((prev) => prev.map((v, idx) => idx === i ? { ...v, [field]: value } : v));
+
+    const removeVariant = (i: number) =>
+      setVariants((prev) => prev.filter((_, idx) => idx !== i));
+
+    const addVariant = () =>
+      setVariants((prev) => [...prev, { name: "Aroma", option: "", price: null, stock: 0 }]);
+
     const save = () => {
       patchProduct(p.id, {
         name,
@@ -134,11 +149,12 @@ export default function AdminProductsPage() {
         subCategory,
         visible,
         imageUrl: imageUrl || null,
+        variants,
       } as Partial<Product>);
     };
 
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+      <div className="bg-white rounded-lg border border-gray-200 p-4 flex flex-col gap-3 h-full">
         <div className="flex justify-between items-start">
           <span className="text-xs text-[#326b83]">{p.hash}</span>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -184,8 +200,52 @@ export default function AdminProductsPage() {
           <label className="text-xs text-black">Subcategoría</label>
           <input className="w-full border border-gray-300 rounded px-2 py-1.5 bg-white text-black text-sm" value={subCategory ?? ""} onChange={(e)=>setSubCategory(e.target.value)} />
         </div>
-        
-        <button className="w-full bg-[#fa6e83] text-white px-4 py-2 rounded hover:bg-[#e55a72] disabled:opacity-50 text-sm" onClick={save} disabled={loading}>Guardar</button>
+
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <button
+              type="button"
+              onClick={() => setVariantsExpanded((v) => !v)}
+              className="flex items-center gap-1 text-xs font-medium text-black hover:text-[#fa6e83]"
+            >
+              <span>{variantsExpanded ? "▾" : "▸"}</span>
+              <span>Aromas</span>
+              {variants.length > 0 && (
+                <span className="ml-1 bg-[#fa6e83]/10 text-[#fa6e83] rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+                  {variants.length}
+                </span>
+              )}
+            </button>
+            <button type="button" onClick={addVariant} className="text-xs text-[#fa6e83] hover:underline">+ Agregar</button>
+          </div>
+          <div className="space-y-1.5">
+            {variants.length === 0 && (
+              <p className="text-xs text-gray-400 italic">Sin aromas</p>
+            )}
+            {(variantsExpanded ? variants : variants.slice(0, 2)).map((v, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <input
+                  placeholder="Aroma"
+                  value={v.option}
+                  onChange={(e) => updateVariant(i, "option", e.target.value)}
+                  className="flex-1 border border-gray-300 rounded px-2 py-1 bg-white text-black text-xs"
+                />
+                <button type="button" onClick={() => removeVariant(i)} className="text-red-400 hover:text-red-600 text-sm leading-none">✕</button>
+              </div>
+            ))}
+            {!variantsExpanded && variants.length > 2 && (
+              <button
+                type="button"
+                onClick={() => setVariantsExpanded(true)}
+                className="text-xs text-[#fa6e83] hover:underline"
+              >
+                Ver {variants.length - 2} más…
+              </button>
+            )}
+          </div>
+        </div>
+
+        <button className="w-full bg-[#fa6e83] text-white px-4 py-2 rounded hover:bg-[#e55a72] disabled:opacity-50 text-sm mt-auto" onClick={save} disabled={loading}>Guardar</button>
       </div>
     );
   };

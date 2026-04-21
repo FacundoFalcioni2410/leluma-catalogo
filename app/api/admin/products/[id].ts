@@ -16,23 +16,42 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
   const { id } = await context.params;
   const body = await req.json();
-  const { name, price, description, category, subCategory, visible, imageUrl } = body;
+  const { name, price, description, category, subCategory, visible, imageUrl, variants } = body;
 
   try {
-    const updated = await prisma.product.update({
-      where: { id },
-      data: {
-        name: name ?? undefined,
-        price: price ?? undefined,
-        description: description ?? null,
-        category: category ?? undefined,
-        subCategory: subCategory ?? null,
-        visible: visible ?? undefined,
-        imageUrl: imageUrl ?? undefined,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.product.update({
+        where: { id },
+        data: {
+          name: name ?? undefined,
+          price: price ?? undefined,
+          description: description ?? null,
+          category: category ?? undefined,
+          subCategory: subCategory ?? null,
+          visible: visible ?? undefined,
+          imageUrl: imageUrl ?? undefined,
+        },
+      });
+
+      if (variants !== undefined) {
+        await tx.variant.deleteMany({ where: { productId: id } });
+        if (variants.length > 0) {
+          await tx.variant.createMany({
+            data: variants.map((v: { name: string; option: string; price: number | null; stock: number }) => ({
+              productId: id,
+              name: v.name,
+              option: v.option,
+              price: v.price ?? null,
+              stock: v.stock ?? 0,
+            })),
+          });
+        }
+      }
     });
+
+    const updated = await prisma.product.findUnique({ where: { id }, include: { variants: true } });
     return NextResponse.json(updated);
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Failed to update product" }, { status: 500 });
   }
 }
