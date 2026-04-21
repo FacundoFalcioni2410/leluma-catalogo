@@ -152,6 +152,7 @@ export default function AdminProductsPage() {
             <span className="text-xs text-black">Subiendo...</span>
           ) : imageUrl ? (
             <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={imageUrl} alt="" className="h-full w-full object-cover" />
               <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs">
                 Cambiar imagen
