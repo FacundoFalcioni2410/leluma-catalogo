@@ -33,13 +33,13 @@ function stripHtml(html: string): string {
 }
 
 function useQueryParams() {
-  const [params, setParams] = useState<URLSearchParams>();
+  const [params, setParams] = useState<URLSearchParams | null>(null);
   
   useEffect(() => {
     setParams(new URLSearchParams(window.location.search));
   }, []);
   
-  const setQuery = (key: string, value: string | null) => {
+  const setQuery = useCallback((key: string, value: string | null) => {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
     if (value) {
@@ -49,15 +49,15 @@ function useQueryParams() {
     }
     window.history.pushState({}, '', url.toString());
     setParams(new URLSearchParams(url.searchParams));
-  };
+  }, []);
   
-  const clearQuery = () => {
+  const clearQuery = useCallback(() => {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
     url.search = '';
     window.history.pushState({}, '', url.toString());
     setParams(new URLSearchParams());
-  };
+  }, []);
   
   return { params, setQuery, clearQuery };
 }
@@ -144,6 +144,18 @@ export default function CatalogPage() {
     setCategory(undefined);
     setSearch("");
     setPage(1);
+  };
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
+    });
   };
 
   const openProduct = (product: Product) => {
