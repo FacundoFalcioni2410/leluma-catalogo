@@ -34,6 +34,7 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const loaderRef = useRef<HTMLDivElement>(null);
 
   const fetchPage = async (p: number, append = false) => {
@@ -124,141 +125,56 @@ export default function CatalogPage() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="bg-[#326b83] text-white sticky top-0 z-50 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
-          <Link href="/" className="text-xl font-bold text-white">
-            Leluma
-          </Link>
-          <div className="flex-1 flex justify-center">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between mb-3">
+            <Link href="/" className="text-xl font-bold text-white">
+              Leluma
+            </Link>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="p-2 hover:bg-[#fa6e83] rounded-full transition-colors md:hidden"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setShowCart(!showCart)}
+                className="relative p-2 hover:bg-[#fa6e83] rounded-full transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#fa6e83] text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+          <div className="w-full">
             <input
               type="text"
               placeholder="Buscar productos..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && fetchPage(1)}
-              className="w-full max-w-md px-4 py-2 border-2 border-[#326b83][#326b83] rounded-full focus:outline-none focus:border-[#fa6e83] bg-white text-black"
+              className="w-full px-4 py-2.5 border-2 border-[#326b83] rounded-full focus:outline-none focus:border-[#fa6e83] bg-white text-black text-base"
             />
           </div>
-          <button
-            onClick={() => setShowCart(!showCart)}
-            className="relative p-2 hover:bg-[#fa6e83] rounded-full transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-[#fa6e83] text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                {cartCount}
-              </span>
-            )}
-          </button>
         </div>
       </header>
 
-      {/* Cart Sidebar */}
-      {showCart && (
-        <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowCart(false)}>
-          <div className="absolute right-0 top-0 h-full w-80 bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 h-full flex flex-col">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-black">Carrito ({cartCount})</h2>
-                <button onClick={() => setShowCart(false)} className="text-black hover:text-black">
-                  ✕
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                {cart.length === 0 ? (
-                  <p className="text-black text-center py-8">Tu carrito está vacío</p>
-                ) : (
-                  <div className="space-y-3">
-                    {cart.map((item) => (
-                      <div key={item.product.id} className="border-b pb-3">
-                        <p className="font-medium text-sm text-black">{item.product.name}</p>
-                        <p className="text-black font-semibold">${item.product.price}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <button
-                            onClick={() => updateQuantity(item.product.id, -1)}
-                            className="w-8 h-8 border-2 border-[#326b83] rounded flex items-center justify-center text-black font-bold"
-                          >
-                            -
-                          </button>
-                          <span className="w-8 text-center text-black">{item.quantity}</span>
-                          <button
-                            onClick={() => updateQuantity(item.product.id, 1)}
-                            className="w-8 h-8 border-2 border-[#326b83] rounded flex items-center justify-center text-black font-bold"
-                          >
-                            +
-                          </button>
-                          <button
-                            onClick={() => removeFromCart(item.product.id)}
-                            className="ml-auto text-red-500 text-sm hover:underline"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {cart.length > 0 && (
-                <div className="border-t pt-4 mt-4">
-                  <div className="flex justify-between mb-4">
-                    <span className="font-semibold text-black">Total:</span>
-                    <span className="font-bold text-lg text-black">${cartTotal.toFixed(2)}</span>
-                  </div>
-                  <button
-                    onClick={whatsapp}
-                    className="w-full bg-[#fa6e83] text-white py-3 rounded-lg font-semibold hover:bg-[#e55a72]"
-                  >
-                    Comprar por WhatsApp
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto flex">
-        {/* Sidebar Filters */}
-        <aside className="w-60 p-4 hidden lg:block">
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <h3 className="font-semibold text-black mb-3">Categorías</h3>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer hover:text-[#fa6e83]">
-                <input
-                  type="radio"
-                  name="category"
-                  checked={!category}
-                  onChange={() => setCategory(undefined)}
-                  className="accent-[#fa6e83]"
-                />
-                <span className="text-sm text-black">Todas</span>
-              </label>
-              {allCategories.map((cat) => (
-                <label key={cat} className="flex items-center gap-2 cursor-pointer hover:text-[#fa6e83]">
-                  <input
-                    type="radio"
-                    name="category"
-                    checked={category === cat}
-                    onChange={() => setCategory(cat)}
-                    className="accent-[#fa6e83]"
-                  />
-                  <span className="text-sm text-black">{cat}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </aside>
-
-        {/* Products Grid */}
-        <main className="flex-1 p-4">
-          {/* Mobile filters */}
-          <div className="lg:hidden mb-4 flex gap-2 overflow-x-auto pb-2">
+      {/* Mobile Filters */}
+      {showFilters && (
+        <div className="bg-white border-b border-[#326b83] p-4 md:hidden">
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setCategory(undefined)}
-              className={`px-3 py-1 rounded-full text-sm whitespace-nowrap transition-colors text-black ${
-                !category ? "bg-[#fa6e83] text-white" : "bg-white hover:border-[#326b83]"
+              onClick={() => { setCategory(undefined); setShowFilters(false); }}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                !category ? "bg-[#fa6e83] text-white" : "bg-gray-100 text-black"
               }`}
             >
               Todas
@@ -266,43 +182,142 @@ export default function CatalogPage() {
             {allCategories.map((cat) => (
               <button
                 key={cat}
-                onClick={() => setCategory(cat)}
-                className={`px-3 py-1 rounded-full text-sm whitespace-nowrap transition-colors text-black ${
-                  category === cat ? "bg-[#fa6e83] text-white" : "bg-white hover:border-[#326b83]"
+                onClick={() => { setCategory(cat); setShowFilters(false); }}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  category === cat ? "bg-[#fa6e83] text-white" : "bg-gray-100 text-black"
                 }`}
               >
                 {cat}
               </button>
             ))}
           </div>
+        </div>
+      )}
 
-          <p className="text-sm text-black mb-4">{total} productos encontrados</p>
+      {/* Cart Sidebar */}
+      {showCart && (
+        <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowCart(false)}>
+          <div 
+            className="absolute right-0 top-0 bottom-0 left-0 md:left-auto md:w-80 w-full bg-white shadow-xl flex flex-col" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 flex items-center justify-between border-b border-[#326b83]">
+              <h2 className="text-lg font-semibold text-black">Carrito ({cartCount})</h2>
+              <button onClick={() => setShowCart(false)} className="p-2 text-black hover:text-[#fa6e83]">
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {cart.length === 0 ? (
+                <p className="text-black text-center py-8">Tu carrito está vacío</p>
+              ) : (
+                <div className="space-y-4">
+                  {cart.map((item) => (
+                    <div key={item.product.id} className="border-b border-gray-200 pb-4">
+                      <p className="font-medium text-black text-sm">{item.product.name}</p>
+                      <p className="text-black font-semibold">${item.product.price}</p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <button
+                          onClick={() => updateQuantity(item.product.id, -1)}
+                          className="w-10 h-10 border-2 border-[#326b83] rounded-lg flex items-center justify-center text-black font-bold text-lg"
+                        >
+                          -
+                        </button>
+                        <span className="w-8 text-center text-black font-medium">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.product.id, 1)}
+                          className="w-10 h-10 border-2 border-[#326b83] rounded-lg flex items-center justify-center text-black font-bold text-lg"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="ml-auto text-red-500 text-sm hover:underline"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {cart.length > 0 && (
+              <div className="p-4 border-t border-[#326b83]">
+                <div className="flex justify-between mb-4">
+                  <span className="font-semibold text-black">Total:</span>
+                  <span className="font-bold text-xl text-black">${cartTotal.toFixed(2)}</span>
+                </div>
+                <button
+                  onClick={whatsapp}
+                  className="w-full bg-[#fa6e83] text-white py-3 rounded-lg font-semibold hover:bg-[#e55a72] text-base"
+                >
+                  Comprar por WhatsApp
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row">
+        {/* Desktop Sidebar Filters */}
+        <aside className="w-full md:w-60 p-4 hidden md:block">
+          <div className="bg-white rounded-lg p-4 shadow-sm sticky top-24">
+            <h3 className="font-semibold text-black mb-3">Categorías</h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => setCategory(undefined)}
+                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                  !category ? "bg-[#fa6e83] text-white" : "hover:bg-gray-100 text-black"
+                }`}
+              >
+                Todas
+              </button>
+              {allCategories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setCategory(cat)}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                    category === cat ? "bg-[#fa6e83] text-white" : "hover:bg-gray-100 text-black"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* Products Grid */}
+        <main className="flex-1 p-4">
+          <p className="text-sm text-black mb-4">{total} productos</p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {products.filter((p) => p.visible).map((p) => (
-              <div key={p.id} className="bg-white rounded-lg overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
+              <div key={p.id} className="bg-white rounded-lg overflow-hidden hover:shadow-lg transition-shadow flex flex-col border border-gray-200">
                 {p.imageUrl ? (
-                  <img src={p.imageUrl} alt={p.name} className="w-full h-40 object-cover" />
+                  <img src={p.imageUrl} alt={p.name} className="w-full h-32 sm:h-40 object-cover" />
                 ) : (
-                  <div className="w-full h-40 bg-white flex items-center justify-center">
-                    <span className="text-black text-sm">200×200</span>
+                  <div className="w-full h-32 sm:h-40 bg-gray-100 flex items-center justify-center">
+                    <span className="text-gray-400 text-sm">200×200</span>
                   </div>
                 )}
                 <div className="p-3 flex flex-col flex-1">
-                  <p className="text-xs text-black mb-1">{p.category}</p>
+                  <p className="text-xs text-black mb-1 truncate">{p.category}</p>
                   <h3 className="font-medium text-sm text-black mb-1 line-clamp-2">{p.name}</h3>
-                  <p className="text-xs text-black line-clamp-2 mb-2 flex-1">
+                  <p className="text-xs text-black line-clamp-2 mb-2 flex-1 hidden sm:block">
                     {stripHtml(p.description || "")}
                   </p>
                   <div className="mt-auto">
-                    <p className="text-xl font-bold text-black mb-2">
+                    <p className="text-lg sm:text-xl font-bold text-black mb-2">
                       ${p.price.toFixed(2)}
                     </p>
                     <button
                       onClick={() => addToCart(p)}
-                      className="w-full bg-[#fa6e83] text-white py-2 rounded-lg text-sm font-medium hover:bg-[#e55a72] transition-colors"
+                      className="w-full bg-[#fa6e83] text-white py-2 sm:py-2.5 rounded-lg text-sm font-medium hover:bg-[#e55a72] transition-colors"
                     >
-                      Agregar al carrito
+                      Agregar
                     </button>
                   </div>
                 </div>
