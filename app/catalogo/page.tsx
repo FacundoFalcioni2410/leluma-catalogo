@@ -16,7 +16,7 @@ type Product = {
   variants: Array<{ id: string; name: string; option: string; price: number | null; stock: number }>;
 };
 
-type CartItem = { product: Product; quantity: number };
+type CartItem = { product: Product; variantId: string | null; variantName: string | null; quantity: number };
 
 function stripHtml(html: string): string {
   if (!html) return "";
@@ -35,6 +35,9 @@ export default function CatalogPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
   const loaderRef = useRef<HTMLDivElement>(null);
 
   const fetchPage = async (p: number, append = false) => {
@@ -79,29 +82,55 @@ export default function CatalogPage() {
     return () => observer.disconnect();
   }, [handleObserver]);
 
-  const addToCart = (product: Product) => {
+  const openProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setSelectedVariant(null);
+  };
+
+  const closeProduct = () => {
+    setSelectedProduct(null);
+    setSelectedVariant(null);
+    setQuantity(1);
+  };
+
+  const addToCart = () => {
+    if (!selectedProduct) return;
+    
     setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
+      const existing = prev.find(
+        (item) => item.product.id === selectedProduct.id && item.variantId === selectedVariant
+      );
       if (existing) {
         return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+          item.product.id === selectedProduct.id && item.variantId === selectedVariant
+            ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      const variant = selectedProduct.variants.find((v) => v.id === selectedVariant);
+      return [
+        ...prev,
+        {
+          product: selectedProduct,
+          variantId: selectedVariant,
+          variantName: variant?.option ?? null,
+          quantity: quantity,
+        },
+      ];
     });
+    setQuantity(1);
+    setSelectedVariant(null);
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+  const removeFromCart = (productId: string, variantId: string | null) => {
+    setCart((prev) => prev.filter((item) => !(item.product.id === productId && item.variantId === variantId)));
   };
 
-  const updateQuantity = (productId: string, delta: number) => {
+  const updateQuantity = (productId: string, variantId: string | null, delta: number) => {
     setCart((prev) =>
       prev
         .map((item) =>
-          item.product.id === productId
+          item.product.id === productId && item.variantId === variantId
             ? { ...item, quantity: Math.max(0, item.quantity + delta) }
             : item
         )
@@ -109,13 +138,20 @@ export default function CatalogPage() {
     );
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const cartTotal = cart.reduce((sum, item) => {
+    const variant = item.product.variants.find((v) => v.id === item.variantId);
+    const price = variant?.price ?? item.product.price;
+    return sum + price * item.quantity;
+  }, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const whatsapp = () => {
     if (cart.length === 0) return;
     const items_list = cart
-      .map((item) => `- ${item.product.name} x${item.quantity}: $${item.product.price * item.quantity}`)
+      .map((item) => {
+        const variant = item.variantName ? ` (${item.variantName})` : "";
+        return `- ${item.product.name}${variant} x${item.quantity}: $${(item.product.variants.find((v) => v.id === item.variantId)?.price ?? item.product.price) * item.quantity}`;
+      })
       .join("%0A");
     const message = `Hola! Quiero comprar:%0A${items_list}%0ATotal: $${cartTotal}`;
     window.open(`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${message}`, "_blank");
@@ -213,25 +249,30 @@ export default function CatalogPage() {
               ) : (
                 <div className="space-y-4">
                   {cart.map((item) => (
-                    <div key={item.product.id} className="border-b border-gray-200 pb-4">
+                    <div key={`${item.product.id}-${item.variantId}`} className="border-b border-gray-200 pb-4">
                       <p className="font-medium text-black text-sm">{item.product.name}</p>
-                      <p className="text-black font-semibold">${item.product.price}</p>
+                      {item.variantName && (
+                        <p className="text-sm text-[#fa6e83]">{item.variantName}</p>
+                      )}
+                      <p className="text-black font-semibold">
+                        ${(item.product.variants.find((v) => v.id === item.variantId)?.price ?? item.product.price)}
+                      </p>
                       <div className="flex items-center gap-3 mt-2">
                         <button
-                          onClick={() => updateQuantity(item.product.id, -1)}
+                          onClick={() => updateQuantity(item.product.id, item.variantId, -1)}
                           className="w-10 h-10 border-2 border-[#326b83] rounded-lg flex items-center justify-center text-black font-bold text-lg"
                         >
                           -
                         </button>
                         <span className="w-8 text-center text-black font-medium">{item.quantity}</span>
                         <button
-                          onClick={() => updateQuantity(item.product.id, 1)}
+                          onClick={() => updateQuantity(item.product.id, item.variantId, 1)}
                           className="w-10 h-10 border-2 border-[#326b83] rounded-lg flex items-center justify-center text-black font-bold text-lg"
                         >
                           +
                         </button>
                         <button
-                          onClick={() => removeFromCart(item.product.id)}
+                          onClick={() => removeFromCart(item.product.id, item.variantId)}
                           className="ml-auto text-red-500 text-sm hover:underline"
                         >
                           Eliminar
@@ -256,6 +297,95 @@ export default function CatalogPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Product Detail Modal */}
+      {selectedProduct && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={closeProduct}>
+          <div 
+            className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            {selectedProduct.imageUrl ? (
+              <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-48 object-cover" />
+            ) : (
+              <div className="w-full h-24 bg-gray-100 flex items-center justify-center">
+                <span className="text-gray-400 text-sm">Sin imagen</span>
+              </div>
+            )}
+            <div className="p-5">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <p className="text-xs text-black mb-0.5">{selectedProduct.category}</p>
+                  <h2 className="text-lg font-semibold text-black">{selectedProduct.name}</h2>
+                </div>
+                <button onClick={closeProduct} className="p-1 text-black hover:text-[#fa6e83]">
+                  ✕
+                </button>
+              </div>
+              
+              {selectedProduct.description && (
+                <p className="text-sm text-black mb-3">{stripHtml(selectedProduct.description)}</p>
+              )}
+              
+              <p className="text-xl font-bold text-black mb-4">${selectedProduct.price.toFixed(2)}</p>
+              
+              {selectedProduct.variants.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="font-medium text-black mb-2 text-sm">Aromas</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProduct.variants.map((variant) => (
+                      <button
+                        key={variant.id}
+                        onClick={() => setSelectedVariant(variant.id)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                          selectedVariant === variant.id
+                            ? "bg-[#fa6e83] text-white border-[#fa6e83]"
+                            : "bg-white text-black border-[#326b83] hover:border-[#fa6e83]"
+                        }`}
+                      >
+                        {variant.option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-sm text-black">Cantidad</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    className="w-8 h-8 rounded-full border border-[#326b83] text-black font-bold hover:border-[#fa6e83]"
+                  >
+                    -
+                  </button>
+                  <span className="w-8 text-center font-semibold text-black">{quantity}</span>
+                  <button
+                    onClick={() => setQuantity((q) => q + 1)}
+                    className="w-8 h-8 rounded-full border border-[#326b83] text-black font-bold hover:border-[#fa6e83]"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              
+              <button
+                onClick={addToCart}
+                disabled={selectedProduct.variants.length > 0 && !selectedVariant}
+                className={`w-full py-2.5 rounded-lg font-medium text-sm transition-colors ${
+                  selectedProduct.variants.length > 0 && !selectedVariant
+                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    : "bg-[#fa6e83] text-white hover:bg-[#e55a72]"
+                }`}
+              >
+                {selectedProduct.variants.length > 0 && !selectedVariant
+                  ? "Seleccioná un aroma"
+                  : "Agregar al carrito"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -295,7 +425,11 @@ export default function CatalogPage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {products.filter((p) => p.visible).map((p) => (
-              <div key={p.id} className="bg-white rounded-lg overflow-hidden hover:shadow-lg transition-shadow flex flex-col border border-gray-200">
+              <div 
+                key={p.id} 
+                className="bg-white rounded-lg overflow-hidden hover:shadow-lg transition-shadow flex flex-col border border-gray-200 cursor-pointer"
+                onClick={() => openProduct(p)}
+              >
                 {p.imageUrl ? (
                   <img src={p.imageUrl} alt={p.name} className="w-full h-32 sm:h-40 object-cover" />
                 ) : (
@@ -306,18 +440,18 @@ export default function CatalogPage() {
                 <div className="p-3 flex flex-col flex-1">
                   <p className="text-xs text-black mb-1 truncate">{p.category}</p>
                   <h3 className="font-medium text-sm text-black mb-1 line-clamp-2">{p.name}</h3>
-                  <p className="text-xs text-black line-clamp-2 mb-2 flex-1 hidden sm:block">
-                    {stripHtml(p.description || "")}
-                  </p>
+                  {p.variants.length > 0 && (
+                    <p className="text-xs text-[#fa6e83] mb-2">{p.variants.length} aromas</p>
+                  )}
                   <div className="mt-auto">
                     <p className="text-lg sm:text-xl font-bold text-black mb-2">
                       ${p.price.toFixed(2)}
                     </p>
                     <button
-                      onClick={() => addToCart(p)}
-                      className="w-full bg-[#fa6e83] text-white py-2 sm:py-2.5 rounded-lg text-sm font-medium hover:bg-[#e55a72] transition-colors"
+                      onClick={(e) => { e.stopPropagation(); openProduct(p); }}
+                      className="w-full bg-[#326b83] text-white py-2 sm:py-2.5 rounded-lg text-sm font-medium hover:bg-[#fa6e83] transition-colors"
                     >
-                      Agregar
+                      Ver producto
                     </button>
                   </div>
                 </div>
