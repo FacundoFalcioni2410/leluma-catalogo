@@ -1,7 +1,10 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 type Product = {
   id: string;
@@ -160,16 +163,17 @@ export default function CatalogPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-[#326b83] text-white sticky top-0 z-50 shadow-md">
+      <header className="bg-[#fa6e83] text-white sticky top-0 z-50 shadow-md">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between mb-3">
-            <Link href="/" className="text-xl font-bold text-white">
-              Leluma
+            <Link href="/" className="flex items-center gap-2">
+              <Image src="/logo.png" width={40} height={40} alt="Leluma" className="h-10 w-10" />
+              <span className="text-white font-semibold text-lg leading-none">Leluma</span>
             </Link>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="p-2 hover:bg-[#fa6e83] rounded-full transition-colors md:hidden"
+                className="p-2 hover:bg-[#e55a72] rounded-full transition-colors md:hidden"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -177,7 +181,7 @@ export default function CatalogPage() {
               </button>
               <button
                 onClick={() => setShowCart(!showCart)}
-                className="relative p-2 hover:bg-[#fa6e83] rounded-full transition-colors"
+                className="relative p-2 hover:bg-[#e55a72] rounded-full transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -197,7 +201,7 @@ export default function CatalogPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && fetchPage(1)}
-              className="w-full px-4 py-2.5 border-2 border-[#326b83] rounded-full focus:outline-none focus:border-[#fa6e83] bg-white text-black text-base"
+              className="w-full px-4 py-2.5 border-2 border-white/50 rounded-full focus:outline-none focus:border-white bg-white text-black text-base"
             />
           </div>
         </div>
@@ -205,7 +209,7 @@ export default function CatalogPage() {
 
       {/* Mobile Filters */}
       {showFilters && (
-        <div className="bg-white border-b border-[#326b83] p-4 md:hidden">
+        <div className="bg-white border-b border-[#fa6e83] p-4 md:hidden">
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => { setCategory(undefined); setShowFilters(false); }}
@@ -237,7 +241,7 @@ export default function CatalogPage() {
             className="absolute right-0 top-0 bottom-0 left-0 md:left-auto md:w-80 w-full bg-white shadow-xl flex flex-col" 
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 flex items-center justify-between border-b border-[#326b83]">
+            <div className="p-4 flex items-center justify-between border-b border-[#fa6e83]">
               <h2 className="text-lg font-semibold text-black">Carrito ({cartCount})</h2>
               <button onClick={() => setShowCart(false)} className="p-2 text-black hover:text-[#fa6e83]">
                 ✕
@@ -260,14 +264,14 @@ export default function CatalogPage() {
                       <div className="flex items-center gap-3 mt-2">
                         <button
                           onClick={() => updateQuantity(item.product.id, item.variantId, -1)}
-                          className="w-10 h-10 border-2 border-[#326b83] rounded-lg flex items-center justify-center text-black font-bold text-lg"
+                          className="w-10 h-10 border-2 border-[#fa6e83] rounded-lg flex items-center justify-center text-black font-bold text-lg"
                         >
                           -
                         </button>
                         <span className="w-8 text-center text-black font-medium">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.product.id, item.variantId, 1)}
-                          className="w-10 h-10 border-2 border-[#326b83] rounded-lg flex items-center justify-center text-black font-bold text-lg"
+                          className="w-10 h-10 border-2 border-[#fa6e83] rounded-lg flex items-center justify-center text-black font-bold text-lg"
                         >
                           +
                         </button>
@@ -284,7 +288,7 @@ export default function CatalogPage() {
               )}
             </div>
             {cart.length > 0 && (
-              <div className="p-4 border-t border-[#326b83]">
+              <div className="p-4 border-t border-[#fa6e83]">
                 <div className="flex justify-between mb-4">
                   <span className="font-semibold text-black">Total:</span>
                   <span className="font-bold text-xl text-black">${cartTotal.toFixed(2)}</span>
@@ -343,7 +347,7 @@ export default function CatalogPage() {
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
                           selectedVariant === variant.id
                             ? "bg-[#fa6e83] text-white border-[#fa6e83]"
-                            : "bg-white text-black border-[#326b83] hover:border-[#fa6e83]"
+                            : "bg-white text-black border-[#fa6e83]/50 hover:border-[#fa6e83]"
                         }`}
                       >
                         {variant.option}
@@ -358,14 +362,14 @@ export default function CatalogPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="w-8 h-8 rounded-full border border-[#326b83] text-black font-bold hover:border-[#fa6e83]"
+                    className="w-8 h-8 rounded-full border border-[#fa6e83] text-black font-bold hover:border-[#fa6e83]"
                   >
                     -
                   </button>
                   <span className="w-8 text-center font-semibold text-black">{quantity}</span>
                   <button
                     onClick={() => setQuantity((q) => q + 1)}
-                    className="w-8 h-8 rounded-full border border-[#326b83] text-black font-bold hover:border-[#fa6e83]"
+                    className="w-8 h-8 rounded-full border border-[#fa6e83] text-black font-bold hover:border-[#fa6e83]"
                   >
                     +
                   </button>
@@ -449,7 +453,7 @@ export default function CatalogPage() {
                     </p>
                     <button
                       onClick={(e) => { e.stopPropagation(); openProduct(p); }}
-                      className="w-full bg-[#326b83] text-white py-2 sm:py-2.5 rounded-lg text-sm font-medium hover:bg-[#fa6e83] transition-colors"
+                      className="w-full bg-[#fa6e83] text-white py-2 sm:py-2.5 rounded-lg text-sm font-medium hover:bg-[#e55a72] transition-colors"
                     >
                       Ver producto
                     </button>

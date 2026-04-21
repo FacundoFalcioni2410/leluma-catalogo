@@ -2,6 +2,19 @@
 
 import { useState } from "react";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  "Too many requests": "Demasiados intentos. Esperá un momento e intentá de nuevo.",
+  "No file provided": "No se seleccionó ningún archivo.",
+  "Failed to parse CSV": "El archivo no es un CSV válido. Revisá el formato.",
+  "Failed to import": "Ocurrió un error al importar. Revisá el archivo e intentá de nuevo.",
+  "Unauthorized": "No tenés permiso para realizar esta acción.",
+};
+
+function friendlyError(error?: string): string {
+  if (!error) return "Ocurrió un error inesperado.";
+  return ERROR_MESSAGES[error] ?? error;
+}
+
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,26 +35,35 @@ export default function ImportPage() {
         method: "POST",
         body: formData,
       });
-
       const data = await res.json();
       setResult(data);
     } catch {
-      setResult({ error: "Error importing" });
+      setResult({ error: "No se pudo conectar con el servidor. Intentá de nuevo." });
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold text-black mb-6">Importar productos desde CSV</h1>
+  const handleExport = () => {
+    window.location.href = "/api/admin/products/export";
+  };
 
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-[#326b83] max-w-2xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
+  return (
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold text-[#fa6e83]">Importar / Exportar productos</h1>
+        <button
+          onClick={handleExport}
+          className="bg-[#fa6e83] text-white py-2 px-4 rounded-md hover:bg-[#e55a72] transition-colors text-sm"
+        >
+          Exportar CSV
+        </button>
+      </div>
+
+      <div className="bg-white p-4 rounded-lg border border-gray-200 max-w-2xl">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Archivo CSV
-            </label>
+            <label className="block text-sm font-medium text-black mb-2">Archivo CSV</label>
             <input
               type="file"
               accept=".csv"
@@ -53,38 +75,49 @@ export default function ImportPage() {
           <button
             type="submit"
             disabled={!file || loading}
-            className="w-full bg-[#fa6e83] text-white py-2 px-4 rounded-md hover:bg-[#e55a72] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full bg-[#fa6e83] text-white py-2.5 px-4 rounded-md hover:bg-[#e55a72] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
           >
             {loading ? "Importando..." : "Importar Productos"}
           </button>
         </form>
 
         {result && (
-          <div className={`mt-6 p-4 rounded-md ${result.success ? "bg-green-100 text-black" : "bg-red-100 text-black"}`}>
+          <div
+            className={`mt-4 p-3 rounded-md text-sm ${
+              result.success ? "bg-green-100 text-black" : "bg-red-100 text-black"
+            }`}
+          >
             {result.success ? (
-              <p>Se importaron {result.count} productos.</p>
+              <p>Se importaron / actualizaron {result.count} productos correctamente.</p>
             ) : (
-              <p>{result.error}</p>
+              <p>{friendlyError(result.error)}</p>
             )}
           </div>
         )}
 
-        <div className="mt-8 text-sm text-black">
-          <h3 className="font-medium text-black mb-2">Formato esperado del CSV:</h3>
+        <div className="mt-6 text-xs text-black">
+          <h3 className="font-medium text-black mb-2">Comportamiento al importar:</h3>
+          <ul className="list-disc list-inside space-y-1 mb-4">
+            <li>Si la fila tiene <strong>id</strong>, actualiza ese producto existente.</li>
+            <li>Si no tiene <strong>id</strong>, busca por <strong>Hash</strong> y actualiza, o crea uno nuevo.</li>
+            <li>Los productos no incluidos en el CSV no se borran.</li>
+          </ul>
+          <h3 className="font-medium text-black mb-2">Columnas del CSV:</h3>
           <ul className="list-disc list-inside space-y-1">
-            <li><strong>Hash</strong> - Identificador único del producto</li>
-            <li><strong>Nombre del producto</strong> - Nombre del producto</li>
-            <li><strong>Precio</strong> - Precio regular</li>
-            <li><strong>Oferta</strong> - Precio de oferta (opcional)</li>
-            <li><strong>Descripción</strong> - Descripción</li>
-            <li><strong>Categorías &gt; Subcategorías &gt; …</strong> - Ruta de categorías</li>
-            <li><strong>Nombre de variante #1</strong> - Nombre de la variante</li>
-            <li><strong>Opción de variante #1</strong> - Opción de la variante</li>
-            <li><strong>Stock</strong> - Stock</li>
-            <li><strong>Visibilidad</strong> - Visible/Oculto</li>
+            <li><strong>id</strong> — ID del producto (del exportado)</li>
+            <li><strong>Hash</strong> — Identificador único alternativo</li>
+            <li><strong>Nombre del producto</strong></li>
+            <li><strong>Precio</strong></li>
+            <li><strong>Oferta</strong> (opcional)</li>
+            <li><strong>Descripción</strong></li>
+            <li><strong>Categorías &gt; Subcategorías</strong></li>
+            <li><strong>Nombre de variante #1</strong></li>
+            <li><strong>Opción de variante #1</strong></li>
+            <li><strong>Stock</strong></li>
+            <li><strong>Visibilidad (Visible o Oculto)</strong></li>
           </ul>
         </div>
       </div>
-    </div>
+    </>
   );
 }
