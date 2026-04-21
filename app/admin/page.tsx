@@ -15,6 +15,14 @@ export default function AdminDashboard() {
         </Link>
 
         <Link
+          href="/admin/import"
+          className="bg-white p-6 rounded-lg shadow-md border border-[#326b83] hover:shadow-lg transition-shadow"
+        >
+          <h2 className="text-lg font-medium text-[#326b83]">Importar CSV</h2>
+          <p className="text-sm text-black mt-1">Importar productos desde CSV</p>
+        </Link>
+
+        <Link
           href="/catalogo"
           className="bg-white p-6 rounded-lg shadow-md border border-[#fa6e83] hover:shadow-lg transition-shadow"
         >

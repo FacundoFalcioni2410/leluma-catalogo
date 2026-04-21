@@ -11,6 +11,9 @@ export default function AdminHeader({ email }: { email?: string | null }) {
           Admin Leluma
         </Link>
         <div className="flex items-center gap-4">
+          <Link href="/admin/import" className="text-sm text-white hover:text-[#fa6e83]">
+            Importar CSV
+          </Link>
           <Link href="/catalogo" className="text-sm text-white hover:text-[#fa6e83]">
             Ver catálogo
           </Link>
