@@ -55,7 +55,7 @@ export default function LoginPage() {
               name="email"
               id="email"
               required
-              className="w-full px-3 py-2 border border-[#326b83] rounded-md focus:outline-none focus:ring-2 focus:ring-[#fa6e83]"
+              className="w-full px-3 py-2 border border-[#326b83] rounded-md focus:outline-none focus:ring-2 focus:ring-[#fa6e83] text-black"
             />
           </div>
           
@@ -68,7 +68,7 @@ export default function LoginPage() {
               name="password"
               id="password"
               required
-              className="w-full px-3 py-2 border border-[#326b83] rounded-md focus:outline-none focus:ring-2 focus:ring-[#fa6e83]"
+              className="w-full px-3 py-2 border border-[#326b83] rounded-md focus:outline-none focus:ring-2 focus:ring-[#fa6e83] text-black"
             />
           </div>
 
