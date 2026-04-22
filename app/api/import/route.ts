@@ -46,6 +46,15 @@ export async function POST(req: NextRequest) {
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
   const text = await file.text();
 
+  const allCategories = await prisma.category.findMany({ select: { name: true } });
+  const categoryNames = allCategories.map((c) => c.name);
+
+  function matchCategory(raw: string | null | undefined): string | null {
+    if (!raw) return null;
+    const normalized = raw.trim().toLowerCase();
+    return categoryNames.find((n) => n.toLowerCase() === normalized) ?? raw.trim();
+  }
+
   return new Promise<NextResponse>((resolve) => {
     Papa.parse<CSVRow>(text, {
       header: true,
@@ -65,6 +74,7 @@ export async function POST(req: NextRequest) {
             variantLabel: string | null;
             visible: boolean;
             imageUrl: string | null;
+            stock: number;
             variants: Array<{ name: string; option: string; stock: number; price: number | null }>;
           };
 
@@ -83,8 +93,8 @@ export async function POST(req: NextRequest) {
             let subCategory: string | null = null;
             if (categoryPath) {
               const parts = categoryPath.split(">").map((s) => s.trim());
-              category = parts[0] ?? "";
-              subCategory = parts[1] ?? null;
+              category = matchCategory(parts[0]) ?? "";
+              subCategory = matchCategory(parts[1]);
             }
             const variantLabel = row["Nombre de variante #1"] ?? null;
             const option = row["Opción de variante #1"] ?? null;
@@ -93,7 +103,8 @@ export async function POST(req: NextRequest) {
               .toString()
               .toLowerCase()
               .includes("visible");
-            const imageUrl = row.Imagen ?? null;
+            const rawImage = (row.Imagen ?? "").trim();
+            const imageUrl = rawImage && !rawImage.startsWith("data:") ? rawImage : null;
 
             const key = id ?? hash;
             if (!key || !name) continue;
@@ -111,6 +122,7 @@ export async function POST(req: NextRequest) {
                 variantLabel,
                 visible,
                 imageUrl,
+                stock: variantLabel && option ? 0 : stock,
                 variants: [],
               });
             }
@@ -136,7 +148,8 @@ export async function POST(req: NextRequest) {
                     category: product.category,
                     subCategory: product.subCategory,
                     visible: product.visible,
-                    imageUrl: product.imageUrl,
+                    ...(product.imageUrl ? { imageUrl: product.imageUrl } : {}),
+                    stock: product.stock,
                     variants: { create: product.variants },
                   },
                   create: {
@@ -150,6 +163,7 @@ export async function POST(req: NextRequest) {
                     subCategory: product.subCategory,
                     visible: product.visible,
                     imageUrl: product.imageUrl,
+                    stock: product.stock,
                     variants: { create: product.variants },
                   },
                 });
@@ -168,7 +182,8 @@ export async function POST(req: NextRequest) {
                       category: product.category,
                       subCategory: product.subCategory,
                       visible: product.visible,
-                      imageUrl: product.imageUrl,
+                      ...(product.imageUrl ? { imageUrl: product.imageUrl } : {}),
+                      stock: product.stock,
                       variants: { create: product.variants },
                     },
                   });
@@ -184,6 +199,7 @@ export async function POST(req: NextRequest) {
                       subCategory: product.subCategory,
                       visible: product.visible,
                       imageUrl: product.imageUrl,
+                      stock: product.stock,
                       variants: { create: product.variants },
                     },
                   });

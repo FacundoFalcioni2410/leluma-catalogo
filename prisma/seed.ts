@@ -22,7 +22,7 @@ async function main() {
     },
   });
 
-  console.log("Admin user created: admin@leluma.com / leluma2024");
+  console.log("Admin user created: admin@leluma.com / leluma2026");
 }
 
 main()

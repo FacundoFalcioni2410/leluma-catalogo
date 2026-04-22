@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { put } from "@vercel/blob";
 import { auth } from "@/auth";
 import { prisma } from "@/app/lib/prisma";
 
@@ -17,23 +18,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const sizeMB = bytes.byteLength / (1024 * 1024);
+    const sizeMB = file.size / (1024 * 1024);
     if (sizeMB > 5) {
       return NextResponse.json({ error: "Máximo 5MB" }, { status: 400 });
     }
 
-    const base64 = Buffer.from(bytes).toString("base64");
-    const mimeType = file.type || "image/jpeg";
+    const ext = file.name.split(".").pop() ?? "jpg";
+    const filename = `products/${productId}-${Date.now()}.${ext}`;
 
-    const dataUrl = `data:${mimeType};base64,${base64}`;
+    const blob = await put(filename, file, { access: "public" });
 
     await prisma.product.update({
       where: { id: productId },
-      data: { imageUrl: dataUrl },
+      data: { imageUrl: blob.url },
     });
 
-    return NextResponse.json({ url: dataUrl });
+    return NextResponse.json({ url: blob.url });
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });

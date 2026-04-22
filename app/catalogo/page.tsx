@@ -2,9 +2,11 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import CategoryFilter from "@/app/components/CategoryFilter";
 
 type Product = {
   id: string;
@@ -16,6 +18,7 @@ type Product = {
   category: string;
   subCategory?: string | null;
   visible: boolean;
+  stock: number;
   variants: Array<{ id: string; name: string; option: string; price: number | null; stock: number }>;
 };
 
@@ -32,44 +35,29 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").trim();
 }
 
-function useQueryParams() {
-  const [params, setParams] = useState<URLSearchParams | null>(null);
-  
-  useEffect(() => {
-    setParams(new URLSearchParams(window.location.search));
-  }, []);
-  
-  const setQuery = useCallback((key: string, value: string | null) => {
-    if (typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    if (value) {
-      url.searchParams.set(key, value);
-    } else {
-      url.searchParams.delete(key);
-    }
-    window.history.pushState({}, '', url.toString());
-    setParams(new URLSearchParams(url.searchParams));
-  }, []);
-  
-  const clearQuery = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    url.search = '';
-    window.history.pushState({}, '', url.toString());
-    setParams(new URLSearchParams());
-  }, []);
-  
-  return { params, setQuery, clearQuery };
+function getInitialParams() {
+  if (typeof window === "undefined") {
+    return { page: "1", category: "", subCategory: "", search: "" };
+  }
+  const params = new URLSearchParams(window.location.search);
+  return {
+    page: params.get("page") || "1",
+    category: params.get("category") || "",
+    subCategory: params.get("subCategory") || "",
+    search: params.get("search") || "",
+  };
 }
 
 export default function CatalogPage() {
-  const { params, setQuery, clearQuery } = useQueryParams();
+  const router = useRouter();
+  const [hydrated, setHydrated] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [perPage] = useState(12);
   const [category, setCategory] = useState<string | undefined>(undefined);
+  const [subCategory, setSubCategory] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -80,11 +68,55 @@ export default function CatalogPage() {
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
 
+  useEffect(() => {
+    const params = getInitialParams();
+    setPage(parseInt(params.page) || 1);
+    setCategory(params.category || undefined);
+    setSubCategory(params.subCategory || undefined);
+    setSearch(params.search);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      setPage(parseInt(params.get("page") || "1") || 1);
+      setCategory(params.get("category") || undefined);
+      setSubCategory(params.get("subCategory") || undefined);
+      setSearch(params.get("search") || "");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const updateURL = useCallback((updates: Record<string, string | undefined>) => {
+    const params = new URLSearchParams(window.location.search);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+    const newUrl = `/catalogo?${params.toString()}`;
+    window.history.pushState({}, "", newUrl);
+    if (updates.page) setPage(parseInt(updates.page));
+    if (updates.category !== undefined) setCategory(updates.category || undefined);
+    if (updates.subCategory !== undefined) setSubCategory(updates.subCategory || undefined);
+    if (updates.search !== undefined) setSearch(updates.search || "");
+  }, []);
+
   const fetchCategories = async () => {
     const res = await fetch("/api/categories");
     if (res.ok) {
       const data = await res.json();
       setCategories(data);
+      if (category || subCategory) {
+        const cat = data.find((c: Category) => c.name === category);
+        if (cat) {
+          setExpandedCategories((prev) => new Set(prev).add(cat.id));
+        }
+      }
     }
   };
 
@@ -94,6 +126,7 @@ export default function CatalogPage() {
     url.searchParams.set("page", String(p));
     url.searchParams.set("perPage", String(perPage));
     if (category) url.searchParams.set("category", category);
+    if (subCategory) url.searchParams.set("subCategory", subCategory);
     if (search) url.searchParams.set("search", search);
     const res = await fetch(url.toString());
     const data = await res.json();
@@ -104,44 +137,35 @@ export default function CatalogPage() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchCategories();
-    if (params) {
-      const c = params.get('category');
-      const s = params.get('search');
-      const p = params.get('page');
-      if (c) setCategory(c);
-      if (s) setSearch(s);
-      if (p) setPage(parseInt(p));
-    }
-  }, [params]);
-
-  useEffect(() => {
-    if (params !== undefined) {
+  useEffect(() => { if (hydrated) fetchCategories(); }, [hydrated]);
+  useEffect(() => { 
+    if (hydrated) {
       fetchPage(page);
     }
-  }, [category, search, page, params]);
+  }, [category, subCategory, search, page, hydrated]);
 
-  const handleCategoryChange = (cat: string | undefined) => {
+  const handleCategoryChange = (cat: string | undefined, sub?: string) => {
     setCategory(cat);
-    setQuery('category', cat || null);
+    setSubCategory(sub);
+    updateURL({ category: cat || undefined, subCategory: sub || undefined, page: "1" });
     setPage(1);
   };
 
   const handleSearchChange = (s: string) => {
     setSearch(s);
-    setQuery('search', s || null);
+    updateURL({ search: s || undefined, page: "1" });
     setPage(1);
   };
 
   const handlePageChange = (p: number) => {
     setPage(p);
-    setQuery('page', String(p));
+    updateURL({ page: String(p) });
   };
 
-  const handleClearFilters = () => {
-    clearQuery();
+const handleClearFilters = () => {
+    window.history.pushState({}, "", "/catalogo");
     setCategory(undefined);
+    setSubCategory(undefined);
     setSearch("");
     setPage(1);
   };
@@ -233,6 +257,14 @@ export default function CatalogPage() {
     window.open(`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${message}`, "_blank");
   };
 
+  if (!hydrated) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#fa6e83] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -273,7 +305,7 @@ export default function CatalogPage() {
               placeholder="Buscar productos..."
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearchChange(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearchChange((e.target as HTMLInputElement).value)}
               className="w-full px-4 py-2.5 border-2 border-white/50 rounded-full focus:outline-none focus:border-white bg-white text-black text-base"
             />
           </div>
@@ -308,8 +340,8 @@ export default function CatalogPage() {
                 <button
                   onClick={() => { handleCategoryChange(cat.name); setShowFilters(false); }}
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors flex justify-between items-center ${
-                    category === cat.name ? "bg-[#fa6e83] text-white" : "bg-gray-100 text-black"
-                  }`}
+                      category === cat.name && !subCategory ? "bg-[#fa6e83] text-white" : "bg-gray-100 text-black"
+                    }`}
                 >
                   {cat.name}
                   {cat.children && cat.children.length > 0 && (
@@ -321,9 +353,9 @@ export default function CatalogPage() {
                     {cat.children.map((child) => (
                       <button
                         key={child.id}
-                        onClick={() => { handleCategoryChange(child.name); setShowFilters(false); }}
+                        onClick={() => { handleCategoryChange(cat.name, child.name); setShowFilters(false); }}
                         className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          category === child.name ? "bg-[#fa6e83] text-white" : "hover:bg-gray-200 text-black"
+                          category === cat.name && subCategory === child.name ? "bg-[#fa6e83] text-white" : "hover:bg-gray-200 text-black"
                         }`}
                       >
                         {child.name}
@@ -443,7 +475,7 @@ export default function CatalogPage() {
               
               {selectedProduct.variants.length > 0 && (
                 <div className="mb-4">
-                  <h3 className="font-medium text-black mb-2 text-sm">Aromas</h3>
+                  <h3 className="font-medium text-black mb-2 text-sm">{selectedProduct.category === "Accesorios" ? "Colores" : "Aromas"}</h3>
                   <div className="flex flex-wrap gap-2">
                     {selectedProduct.variants.map((variant) => {
                       const hasStock = variant.stock > 0;
@@ -489,21 +521,26 @@ export default function CatalogPage() {
               </div>
             </div>
             <div className="p-5 pt-0 shrink-0">
-              <button
-                onClick={addToCart}
-                disabled={selectedProduct.variants.length > 0 && (!selectedVariant || selectedProduct.variants.find((v) => v.id === selectedVariant)?.stock === 0)}
-                className={`w-full py-2.5 rounded-lg font-medium text-sm transition-colors ${
-                  selectedProduct.variants.length > 0 && (!selectedVariant || selectedProduct.variants.find((v) => v.id === selectedVariant)?.stock === 0)
-                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                    : "bg-[#fa6e83] text-white hover:bg-[#e55a72]"
-                }`}
-              >
-                {selectedProduct.variants.length > 0 && !selectedVariant
-                  ? "Seleccioná un aroma"
-                  : selectedProduct.variants.find((v) => v.id === selectedVariant)?.stock === 0
-                    ? "Agotado"
-                    : "Agregar al carrito"}
-              </button>
+              {(() => {
+                const noVariantNoStock = selectedProduct.variants.length === 0 && selectedProduct.stock <= 0;
+                const variantNotSelected = selectedProduct.variants.length > 0 && !selectedVariant;
+                const selectedVariantSoldOut = !!selectedVariant && selectedProduct.variants.find((v) => v.id === selectedVariant)?.stock === 0;
+                const disabled = noVariantNoStock || variantNotSelected || selectedVariantSoldOut;
+                const label = noVariantNoStock || selectedVariantSoldOut
+                  ? "Agotado"
+                  : variantNotSelected
+                    ? `Seleccioná un ${selectedProduct.category === "Accesorios" ? "color" : "aroma"}`
+                    : "Agregar al carrito";
+                return (
+                  <button
+                    onClick={addToCart}
+                    disabled={disabled}
+                    className={`w-full py-2.5 rounded-lg font-medium text-sm transition-colors ${disabled ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#fa6e83] text-white hover:bg-[#e55a72]"}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -514,51 +551,15 @@ export default function CatalogPage() {
         <aside className="w-full md:w-60 p-4 hidden md:block">
           <div className="bg-white rounded-lg p-4 shadow-sm sticky top-24">
             <h3 className="font-semibold text-black mb-3">Categorías</h3>
-            <div className="space-y-2">
-              <button
-                onClick={() => handleCategoryChange(undefined)}
-                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                  !category ? "bg-[#fa6e83] text-white" : "hover:bg-gray-100 text-black"
-                }`}
-              >
-                Todas
-              </button>
-              {categories.map((cat) => (
-                <div key={cat.id}>
-                  <button
-                    onClick={() => handleCategoryChange(cat.name)}
-                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex justify-between items-center ${
-                      category === cat.name ? "bg-[#fa6e83] text-white" : "hover:bg-gray-100 text-black"
-                    }`}
-                  >
-                    {cat.name}
-                    {cat.children && cat.children.length > 0 && (
-                      <span 
-                        onClick={(e) => { e.stopPropagation(); toggleCategory(cat.id); }}
-                        className="text-xs text-gray-500 hover:text-[#fa6e83]"
-                      >
-                        {expandedCategories.has(cat.id) ? "▾" : "▸"}
-                      </span>
-                    )}
-                  </button>
-                  {cat.children && cat.children.length > 0 && expandedCategories.has(cat.id) && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {cat.children.map((child) => (
-                        <button
-                          key={child.id}
-                          onClick={() => handleCategoryChange(child.name)}
-                          className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                            category === child.name ? "bg-[#fa6e83] text-white" : "hover:bg-gray-100 text-black"
-                          }`}
-                        >
-                          {child.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+            <CategoryFilter
+              variant="catalogo"
+              categories={categories}
+              expandedCategories={expandedCategories}
+              selectedCategory={category}
+              selectedSubCategory={subCategory}
+              onCategoryChange={handleCategoryChange}
+              onToggleExpand={toggleCategory}
+            />
           </div>
         </aside>
 
@@ -580,11 +581,13 @@ export default function CatalogPage() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {products.filter((p) => p.visible).map((p) => (
-              <div 
-                key={p.id} 
-                className="bg-white rounded-lg overflow-hidden hover:shadow-lg transition-shadow flex flex-col border border-gray-200 cursor-pointer"
-                onClick={() => openProduct(p)}
+            {products.filter((p) => p.visible).map((p) => {
+              const outOfStock = p.variants.length === 0 && p.stock <= 0;
+              return (
+              <Link
+                key={p.id}
+                href={`/catalogo/${p.id}`}
+                className={`bg-white rounded-lg overflow-hidden transition-shadow flex flex-col border border-gray-200 ${outOfStock ? "opacity-50 cursor-default" : "hover:shadow-lg cursor-pointer"}`}
               >
                 {p.imageUrl ? (
                   <img src={p.imageUrl} alt={p.name} className="w-full h-32 sm:h-40 object-cover" />
@@ -597,25 +600,35 @@ export default function CatalogPage() {
                   <p className="text-xs text-black mb-1 truncate">{p.category}</p>
                   <h3 className="font-medium text-sm text-black mb-1 line-clamp-2">{p.name}</h3>
                   {p.variants.length > 0 && (
-                    <p className="text-xs text-[#fa6e83] mb-2">{p.variants.length} aromas</p>
+                    <p className="text-xs text-[#fa6e83] mb-2">{p.variants.length} {p.category === "Accesorios" ? "colores" : "aromas"}</p>
                   )}
                   <div className="mt-auto">
                     <p className="text-lg sm:text-xl font-bold text-black mb-2">
                       ${p.price.toFixed(2)}
                     </p>
                     <button
-                      onClick={(e) => { e.stopPropagation(); openProduct(p); }}
-                      className="w-full bg-[#fa6e83] text-white py-2 sm:py-2.5 rounded-lg text-sm font-medium hover:bg-[#e55a72] transition-colors"
+                      disabled={outOfStock}
+                      className={`w-full py-2 sm:py-2.5 rounded-lg text-sm font-medium transition-colors ${outOfStock ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-[#fa6e83] text-white hover:bg-[#e55a72]"}`}
                     >
-                      Ver producto
+                      {outOfStock ? "Sin stock" : "Ver producto"}
                     </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              </Link>
+              );
+            })}
           </div>
 
-          {loading && <div className="text-center py-8 text-black">Cargando...</div>}
+          {loading && <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 border-[#fa6e83] border-t-transparent rounded-full animate-spin" /></div>}
+          
+          {!loading && products.length === 0 && total === 0 && (category || search) && (
+            <div className="text-center py-8">
+              <p className="text-black mb-2">No hay productos que coincidan con los filtros</p>
+              <button onClick={handleClearFilters} className="text-[#fa6e83] hover:underline text-sm">
+                Limpiar filtros
+              </button>
+            </div>
+          )}
           
           {!loading && products.length > 0 && products.length < total && (
             <div className="flex justify-center gap-2 mt-8">
@@ -637,10 +650,6 @@ export default function CatalogPage() {
                 Siguiente
               </button>
             </div>
-          )}
-          
-          {!loading && products.length >= total && products.length > 0 && (
-            <div className="text-center py-8 text-black">No hay más productos</div>
           )}
         </main>
       </div>

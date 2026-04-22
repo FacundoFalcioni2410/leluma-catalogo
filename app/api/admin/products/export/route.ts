@@ -41,6 +41,7 @@ export async function GET() {
   for (const product of products) {
     const categoryPath = [product.category, product.subCategory].filter(Boolean).join(" > ");
     const visibility = product.visible ? "Visible" : "Oculto";
+    const imageUrl = product.imageUrl?.startsWith("data:") ? "" : (product.imageUrl ?? "");
 
     if (product.variants.length === 0) {
       rows.push(
@@ -54,9 +55,9 @@ export async function GET() {
           categoryPath,
           "",
           "",
-          "",
+          product.stock ?? 0,
           visibility,
-          product.imageUrl ?? "",
+          imageUrl,
         ]
           .map(escape)
           .join(",")
@@ -76,7 +77,7 @@ export async function GET() {
             variant.option,
             variant.stock,
             visibility,
-            product.imageUrl ?? "",
+            imageUrl,
           ]
             .map(escape)
             .join(",")

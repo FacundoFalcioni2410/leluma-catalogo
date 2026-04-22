@@ -3,6 +3,28 @@ import { auth } from "@/auth";
 import { prisma } from "@/app/lib/prisma";
 import { rateLimit } from "@/app/lib/rate-limit";
 
+export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await context.params;
+  const product = await prisma.product.findUnique({ where: { id }, include: { variants: true } });
+  if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(product);
+}
+
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await context.params;
+  try {
+    await prisma.variant.deleteMany({ where: { productId: id } });
+    await prisma.product.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
+}
+
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) {
@@ -16,11 +38,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
   const { id } = await context.params;
   const body = await req.json();
-  const { name, price, description, category, subCategory, order, visible, imageUrl, variants } = body;
+  const { name, price, description, category, subCategory, order, stock, visible, imageUrl, variants } = body;
 
   try {
-    console.log("Updating product:", id, "with data:", { name, price, category, subCategory, order, visible });
-    
+    console.log("Updating product:", id, "with data:", { name, price, category, subCategory, order, stock, visible });
+
     await prisma.$transaction(async (tx) => {
       await tx.product.update({
         where: { id },
@@ -31,6 +53,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           category: category ?? undefined,
           subCategory: subCategory ?? null,
           order: order ?? undefined,
+          stock: stock ?? undefined,
           visible: visible ?? undefined,
           imageUrl: imageUrl ?? undefined,
         },

@@ -1,6 +1,15 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import AdminHeader from "./AdminHeader";
+
+export const metadata: Metadata = {
+  title: "Admin - Leluma",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function AdminLayout({
   children,

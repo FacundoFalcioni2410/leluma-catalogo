@@ -12,10 +12,12 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
   const perPage = Math.max(1, Math.min(100, parseInt(url.searchParams.get("perPage") || "9")));
   const category = url.searchParams.get("category") || undefined;
+  const subCategory = url.searchParams.get("subCategory") || undefined;
   const search = url.searchParams.get("search") || undefined;
 
   const where: Record<string, unknown> = { visible: true };
   if (category) where.category = category;
+  if (subCategory) where.subCategory = subCategory;
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
@@ -26,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const [count, items] = await Promise.all([
     prisma.product.count({ where }),
-    prisma.product.findMany({ where, include: { variants: true }, take: perPage, skip: (page - 1) * perPage, orderBy: [{ order: "desc" }, { createdAt: "desc" }] }),
+    prisma.product.findMany({ where, include: { variants: true }, take: perPage, skip: (page - 1) * perPage, orderBy: [{ order: "asc" }, { createdAt: "desc" }] }),
   ]);
 
   const data = items.map((p) => ({
@@ -38,6 +40,7 @@ export async function GET(req: NextRequest) {
     category: p.category,
     subCategory: p.subCategory,
     visible: p.visible,
+    stock: p.stock ?? 0,
     imageUrl: p.imageUrl,
     variants: p.variants.map((v) => ({ id: v.id, name: v.name, option: v.option, price: v.price, stock: v.stock })),
   }));
