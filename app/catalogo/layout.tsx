@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Leluma — Catálogo de productos",
   description:
-    "Explorá el catálogo de Leluma: velas, aromaterapia, inciensos y productos espirituales. Comprá fácil por WhatsApp.",
+    "Explorá el catálogo de Leluma. Ingresá y conocé nuestra amplia variedad de productos!!!",
   keywords: [
     "Leluma",
     "velas artesanales",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Leluma — Catálogo de productos",
     description:
-      "Explorá el catálogo de Leluma: velas, aromaterapia, inciensos y productos espirituales.",
+      "Explorá el catálogo de Leluma. Ingresá y conocé nuestra amplia variedad de productos!!!",
     type: "website",
     locale: "es_AR",
     images: [
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: "Leluma — Catálogo de productos",
     description:
-      "Explorá el catálogo de Leluma: velas, aromaterapia, inciensos y productos espirituales.",
+      "Explorá el catálogo de Leluma. Ingresá y conocé nuestra amplia variedad de productos!!!",
     images: ["/logo.png"],
   },
   alternates: {

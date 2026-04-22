@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { upload } from "@vercel/blob/client";
 import Link from "next/link";
 
 type Variant = { id?: string; name: string; option: string; price: number | null; stock: number };
@@ -33,6 +34,8 @@ export default function EditProductPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +123,27 @@ export default function EditProductPage() {
   const save = async () => {
     setSaving(true);
     setSaved(false);
+    let finalImageUrl = imageUrl;
+    if (pendingFile && product) {
+      try {
+        setUploading(true);
+        const ext = pendingFile.name.split(".").pop() ?? "jpg";
+        const blob = await upload(`products/${product.id}-${Date.now()}.${ext}`, pendingFile, {
+          access: "public",
+          handleUploadUrl: "/api/admin/upload",
+        });
+        finalImageUrl = blob.url;
+        setImageUrl(blob.url);
+        setPendingFile(null);
+        if (previewUrl) { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }
+      } catch {
+        setError("Error al subir la imagen");
+        setSaving(false);
+        setUploading(false);
+        return;
+      }
+      setUploading(false);
+    }
     const res = await fetch(`/api/admin/products/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -127,7 +151,7 @@ export default function EditProductPage() {
         name, price, description,
         category, subCategory: subCategory || null,
         order, stock: variants.length === 0 ? stock : undefined,
-        visible, imageUrl: imageUrl || null, variants,
+        visible, imageUrl: finalImageUrl || null, variants,
       }),
     });
     setSaving(false);
@@ -143,16 +167,14 @@ export default function EditProductPage() {
     else setError("Error al eliminar");
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !product) return;
-    setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("productId", product.id);
-    const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
-    if (res.ok) { const data = await res.json(); setImageUrl(data.url); }
-    setUploading(false);
+    if (!file) return;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    const local = URL.createObjectURL(file);
+    setPendingFile(file);
+    setPreviewUrl(local);
+    setImageUrl(local);
   };
 
   const updateVariant = (i: number, field: keyof Variant, value: string | number | null) =>

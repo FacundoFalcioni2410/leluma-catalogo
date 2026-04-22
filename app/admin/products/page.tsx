@@ -30,6 +30,7 @@ export default function AdminProductsPage() {
   const [filterCategory, setFilterCategory] = useState<string | undefined>(undefined);
   const [filterSubCategory, setFilterSubCategory] = useState<string | undefined>(undefined);
   const [filterExpanded, setFilterExpanded] = useState<Set<string>>(new Set());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -148,10 +149,10 @@ export default function AdminProductsPage() {
 
       {/* Search + filters + table */}
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar filters */}
-        <div className="lg:w-60 shrink-0">
+        {/* Sidebar filters — desktop only */}
+        <div className="hidden lg:block lg:w-60 shrink-0">
           <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm sticky top-24">
-            <h3 className="font-semibold text-gray-700 mb-3 text-sm">Categorías</h3>
+            <h3 className="font-semibold text-gray-700 text-sm mb-3">Categorías</h3>
             <CategoryFilter
               variant="catalogo"
               categories={categoryOptions}
@@ -164,10 +165,52 @@ export default function AdminProductsPage() {
           </div>
         </div>
 
+        {/* Bottom sheet — mobile only */}
+        <div className={`fixed inset-0 z-50 lg:hidden transition-opacity duration-300 ${sidebarOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
+          <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl transition-transform duration-300 ${sidebarOpen ? "translate-y-0" : "translate-y-full"}`}>
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-300" />
+            </div>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <span className="font-semibold text-gray-900">Categorías</span>
+              {(filterCategory || filterSubCategory) && (
+                <button
+                  onClick={() => { setFilterCategory(undefined); setFilterSubCategory(undefined); setPage(1); syncUrl({ page: 1, category: null, subCategory: null }); setSidebarOpen(false); }}
+                  className="text-xs text-[#fa6e83] font-medium"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+            <div className="overflow-y-auto max-h-[60vh] px-4 py-3 pb-8">
+              <CategoryFilter
+                variant="catalogo"
+                categories={categoryOptions}
+                expandedCategories={filterExpanded}
+                selectedCategory={filterCategory}
+                selectedSubCategory={filterSubCategory}
+                onCategoryChange={(cat, sub) => { setFilterCategory(cat); setFilterSubCategory(sub); setPage(1); syncUrl({ page: 1, category: cat ?? null, subCategory: sub ?? null }); setSidebarOpen(false); }}
+                onToggleExpand={(id) => setFilterExpanded((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; })}
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Table */}
         <div className="flex-1 min-w-0">
           <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm mb-4">
             <div className="flex flex-wrap gap-3 items-center">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden inline-flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-700 text-sm hover:bg-gray-100 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Categorías
+                {filterCategory && <span className="w-2 h-2 rounded-full bg-[#fa6e83]" />}
+              </button>
               <div className="flex-1 min-w-[200px] relative">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -210,7 +253,8 @@ export default function AdminProductsPage() {
             )}
 
             {!loading && items.length > 0 && (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[480px]">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/60">
                     <th className="text-left px-4 py-3 font-semibold text-gray-500 uppercase text-xs tracking-wide w-12"></th>
@@ -283,6 +327,7 @@ export default function AdminProductsPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
 

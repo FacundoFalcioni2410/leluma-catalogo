@@ -278,11 +278,12 @@ const handleClearFilters = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="p-2 hover:bg-[#e55a72] rounded-full transition-colors md:hidden"
+                className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-[#e55a72] rounded-full transition-colors md:hidden"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
+                <span className="text-sm font-medium">Categorías</span>
               </button>
               <button
                 onClick={() => setShowCart(!showCart)}
@@ -312,62 +313,86 @@ const handleClearFilters = () => {
         </div>
       </header>
 
-      {/* Mobile Filters */}
-      {showFilters && (
-        <div className="bg-white border-b border-[#fa6e83] p-4 md:hidden">
-          <div className="flex items-center justify-between mb-3">
-            <span className="font-semibold text-black">Filtros</span>
-            {(category || search) && (
-              <button
-                onClick={handleClearFilters}
-                className="text-xs text-[#fa6e83] hover:underline font-medium"
-              >
+      {/* Mobile Filters — Bottom Sheet */}
+      <div className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300 ${showFilters ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}>
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilters(false)} />
+        {/* Sheet */}
+        <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl transition-transform duration-300 ${showFilters ? "translate-y-0" : "translate-y-full"}`}>
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-gray-300" />
+          </div>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <span className="font-semibold text-gray-900">Categorías</span>
+            {(category || subCategory) && (
+              <button onClick={() => { handleClearFilters(); setShowFilters(false); }} className="text-xs text-[#fa6e83] font-medium">
                 Limpiar
               </button>
             )}
           </div>
-          <div className="space-y-2">
+          {/* Content */}
+          <div className="overflow-y-auto max-h-[60vh] px-4 py-3 space-y-1.5 pb-8">
             <button
               onClick={() => { handleCategoryChange(undefined); setShowFilters(false); }}
-              className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                !category ? "bg-[#fa6e83] text-white" : "bg-gray-100 text-black"
+              className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                !category ? "bg-[#fa6e83] text-white" : "bg-gray-100 text-gray-800"
               }`}
             >
               Todas
             </button>
-            {categories.map((cat) => (
-              <div key={cat.id}>
-                <button
-                  onClick={() => { handleCategoryChange(cat.name); setShowFilters(false); }}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors flex justify-between items-center ${
-                      category === cat.name && !subCategory ? "bg-[#fa6e83] text-white" : "bg-gray-100 text-black"
+            {categories.map((cat) => {
+              const hasChildren = cat.children && cat.children.length > 0;
+              const isExpanded = expandedCategories.has(cat.id);
+              return (
+                <div key={cat.id}>
+                  <button
+                    onClick={() => {
+                      handleCategoryChange(cat.name);
+                      if (hasChildren) {
+                        if (!isExpanded) toggleCategory(cat.id);
+                      } else {
+                        setShowFilters(false);
+                      }
+                    }}
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors flex justify-between items-center ${
+                      category === cat.name && !subCategory ? "bg-[#fa6e83] text-white" : "bg-gray-100 text-gray-800"
                     }`}
-                >
-                  {cat.name}
-                  {cat.children && cat.children.length > 0 && (
-                    <span className="text-xs">{expandedCategories.has(cat.id) ? "▾" : "▸"}</span>
-                  )}
-                </button>
-                {cat.children && cat.children.length > 0 && expandedCategories.has(cat.id) && (
-                  <div className="ml-4 mt-1 space-y-1">
-                    {cat.children.map((child) => (
-                      <button
-                        key={child.id}
-                        onClick={() => { handleCategoryChange(cat.name, child.name); setShowFilters(false); }}
-                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          category === cat.name && subCategory === child.name ? "bg-[#fa6e83] text-white" : "hover:bg-gray-200 text-black"
-                        }`}
+                  >
+                    {cat.name}
+                    {hasChildren && (
+                      <span
+                        className="text-xs px-1"
+                        onClick={(e) => { e.stopPropagation(); toggleCategory(cat.id); }}
                       >
-                        {child.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+                        {isExpanded ? "▾" : "▸"}
+                      </span>
+                    )}
+                  </button>
+                  {hasChildren && isExpanded && (
+                    <div className="ml-4 mt-1 space-y-1">
+                      {cat.children!.map((child) => (
+                        <button
+                          key={child.id}
+                          onClick={() => { handleCategoryChange(cat.name, child.name); setShowFilters(false); }}
+                          className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition-colors ${
+                            category === cat.name && subCategory === child.name
+                              ? "bg-[#fa6e83] text-white font-medium"
+                              : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                          }`}
+                        >
+                          {child.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Cart Sidebar */}
       {showCart && (

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     default: "Leluma",
     template: "%s | Leluma",
   },
-  description: "Leluma — productos espirituales y cálidos: velas, aromaterapia e inciensos.",
+  description: "Explorá el catálogo de Leluma. Ingresá y conocé nuestra amplia variedad de productos!!!.",
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? "https://leluma.com.ar"),
   openGraph: {
     siteName: "Leluma",

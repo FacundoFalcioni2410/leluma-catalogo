@@ -111,14 +111,8 @@ export default function CategoryFilter({
             <button
               type="button"
               onClick={() => {
-                if (hasChildren) {
-                  onToggleExpand(cat.id);
-                  if (isActive && selectedSubCategory) {
-                    onCategoryChange(cat.name);
-                  }
-                } else {
-                  onCategoryChange(cat.name);
-                }
+                onCategoryChange(cat.name);
+                if (hasChildren && !isExpanded) onToggleExpand(cat.id);
               }}
               className={`${parentCls} ${isAdmin && hasChildren ? "rounded-l-lg" : isAdmin ? "rounded-lg" : ""} ${
                 isActive ? parentActiveCls : parentInactiveCls
