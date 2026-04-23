@@ -67,14 +67,14 @@ export default function AdminProductsPage() {
     } catch { /* ignore */ }
   }, []);
 
-  const fetchPage = useCallback(async (p: number) => {
+  const fetchPage = useCallback(async (p: number, cat?: string, sub?: string, s?: string) => {
     setLoading(true);
     const url = new URL("/api/admin/products", window.location.origin);
     url.searchParams.set("page", String(p));
     url.searchParams.set("perPage", String(perPage));
-    if (filterCategory) url.searchParams.set("category", filterCategory);
-    if (filterSubCategory) url.searchParams.set("subCategory", filterSubCategory);
-    if (search) url.searchParams.set("search", search);
+    if (cat) url.searchParams.set("category", cat);
+    if (sub) url.searchParams.set("subCategory", sub);
+    if (s) url.searchParams.set("search", s);
     const res = await fetch(url.toString(), { cache: "no-store" });
     if (!res.ok) { setLoading(false); return; }
     const data = await res.json();
@@ -94,12 +94,13 @@ export default function AdminProductsPage() {
     if (cat) setFilterCategory(cat);
     if (sub) setFilterSubCategory(sub);
     setInitialized(true);
+    void fetchPage(p, cat, sub, s);
   }, []);
 
   useEffect(() => {
     if (!initialized) return;
-    void fetchPage(page);
-  }, [page, filterCategory, filterSubCategory, search, perPage]);
+    void fetchPage(page, filterCategory, filterSubCategory, search);
+  }, [page, filterCategory, filterSubCategory, search]);
 
   useEffect(() => {
     void fetchCategories();
