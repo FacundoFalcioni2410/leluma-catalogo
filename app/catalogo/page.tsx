@@ -257,7 +257,10 @@ const handleClearFilters = () => {
           <div className="flex items-center justify-between mb-3">
             <Link href="/" className="flex items-center gap-2">
               <Image src="/logo.png" width={40} height={40} alt="Leluma" className="h-10 w-10" />
-              <span className="text-white font-semibold text-lg leading-none">Leluma</span>
+              <div className="flex flex-col leading-none">
+                <span className="text-white font-semibold text-lg">Leluma</span>
+                <span className="text-white/80 text-xs font-medium">Mayorista</span>
+              </div>
             </Link>
             <div className="flex items-center gap-3">
               <button
