@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-asserted-optional-chain */
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
@@ -48,6 +49,9 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
+    const variant = product.variants.find((v) => v.id === selectedVariant);
+    const availableStock = variant ? variant.stock : product.stock;
+    if (quantity > availableStock) return;
     addToCart(product, selectedVariant, quantity);
     setQuantity(1);
     setSelectedVariant(null);
@@ -105,6 +109,9 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
   const { id: productId, name, price, description, category, subCategory, imageUrl, variants, stock } = product;
   const noVariants = variants.length === 0;
   const outOfStock = noVariants && stock <= 0;
+  const selectedVariantStock = selectedVariant ? variants.find((v) => v.id === selectedVariant)?.stock ?? 0 : 0;
+  const selectedVariantOutOfStock = !!selectedVariant && selectedVariantStock <= 0;
+  const quantityExceedsStock = !!selectedVariant && quantity > selectedVariantStock;
 
   return (
     <div className="min-h-screen bg-white">
@@ -319,7 +326,11 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                 </button>
                 <span className="w-8 text-center font-semibold text-black text-sm">{quantity}</span>
                 <button
-                  onClick={() => setQuantity((q) => q + 1)}
+                  onClick={() => {
+                    const variant = variants.find((v) => v.id === selectedVariant);
+                    const availableStock = variant ? variant.stock : stock;
+                    setQuantity((q) => q + 1 <= availableStock ? q + 1 : q);
+                  }}
                   className="w-8 h-8 rounded-full border border-[#fa6e83] text-black font-bold hover:border-[#fa6e83]"
                 >
                   +
@@ -329,9 +340,9 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
 
             <button
               onClick={handleAddToCart}
-              disabled={outOfStock || (variants.length > 0 && !selectedVariant)}
+              disabled={outOfStock || (variants.length > 0 && !selectedVariant) || selectedVariantOutOfStock || quantityExceedsStock}
               className={`w-full py-3 rounded-lg font-medium text-base transition-colors mt-3 ${
-                outOfStock || (variants.length > 0 && !selectedVariant)
+                outOfStock || (variants.length > 0 && !selectedVariant) || selectedVariantOutOfStock || quantityExceedsStock
                   ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                   : "bg-[#fa6e83] text-white hover:bg-[#e55a72]"
               }`}
@@ -340,7 +351,9 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                 ? "Agotado"
                 : variants.length > 0 && !selectedVariant
                   ? `Seleccioná un ${category === "Accesorios" ? "color" : "aroma"}`
-                  : "Agregar al carrito"}
+                  : selectedVariantOutOfStock || quantityExceedsStock
+                    ? "Sin stock"
+                    : "Agregar al carrito"}
             </button>
           </div>
         </div>

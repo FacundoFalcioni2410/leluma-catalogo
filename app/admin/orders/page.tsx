@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -77,9 +78,9 @@ export default function AdminOrdersPage() {
       setTotal(data.total);
     }
     setLoading(false);
-  }, [statusFilter]);
+  }, []);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => { fetchOrders(); }, [statusFilter]);
 
   const selectOrder = (order: Order) => {
     setSelectedOrder(order);

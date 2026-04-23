@@ -71,7 +71,7 @@ export default function AdminProductsPage() {
         }
       }
     } catch { /* ignore */ }
-  }, [filterCategory, filterSubCategory]);
+  }, []);
 
   const fetchPage = useCallback(async (p: number) => {
     setLoading(true);
@@ -87,23 +87,10 @@ export default function AdminProductsPage() {
     setItems(data.items ?? []);
     setTotal(data.total ?? 0);
     setLoading(false);
-  }, [filterCategory, filterSubCategory, search, perPage]);
+  }, [perPage]);
 
-  useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    const p = parseInt(sp.get("page") ?? "1") || 1;
-    const s = sp.get("search") ?? "";
-    const cat = sp.get("category") || undefined;
-    const sub = sp.get("subCategory") || undefined;
-    if (p !== 1) setPage(p);
-    if (s) setSearch(s);
-    if (cat) setFilterCategory(cat);
-    if (sub) setFilterSubCategory(sub);
-    setInitialized(true);
-  }, []);
-
-  useEffect(() => { if (initialized) void fetchPage(page); }, [fetchPage, page, initialized]);
-  useEffect(() => { void fetchCategories(); }, [fetchCategories]);
+  useEffect(() => { if (initialized) void fetchPage(page); }, [page, initialized, filterCategory, filterSubCategory, search, perPage]);
+  useEffect(() => { void fetchCategories(); }, [filterCategory, filterSubCategory]);
 
   const toggleVisible = async (id: string, visible: boolean) => {
     setItems((prev) => prev.map((p) => p.id === id ? { ...p, visible } : p));

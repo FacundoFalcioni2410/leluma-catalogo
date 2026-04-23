@@ -197,6 +197,9 @@ const handleClearFilters = () => {
 
   const addToCart = () => {
     if (!selectedProduct) return;
+    const variant = selectedProduct.variants.find((v) => v.id === selectedVariant);
+    const availableStock = variant ? variant.stock : selectedProduct.stock;
+    if (quantity > availableStock) return;
     ctxAddToCart(selectedProduct, selectedVariant, quantity);
     setQuantity(1);
     setSelectedVariant(null);
@@ -558,7 +561,11 @@ const handleClearFilters = () => {
                   </button>
                   <span className="w-8 text-center font-semibold text-black">{quantity}</span>
                   <button
-                    onClick={() => setQuantity((q) => q + 1)}
+                    onClick={() => {
+                      const variant = selectedProduct.variants.find((v) => v.id === selectedVariant);
+                      const availableStock = variant ? variant.stock : selectedProduct.stock;
+                      setQuantity((q) => q + 1 <= availableStock ? q + 1 : q);
+                    }}
                     className="w-8 h-8 rounded-full border border-[#fa6e83] text-black font-bold hover:border-[#fa6e83]"
                   >
                     +
@@ -570,13 +577,18 @@ const handleClearFilters = () => {
               {(() => {
                 const noVariantNoStock = selectedProduct.variants.length === 0 && selectedProduct.stock <= 0;
                 const variantNotSelected = selectedProduct.variants.length > 0 && !selectedVariant;
-                const selectedVariantSoldOut = !!selectedVariant && selectedProduct.variants.find((v) => v.id === selectedVariant)?.stock === 0;
-                const disabled = noVariantNoStock || variantNotSelected || selectedVariantSoldOut;
+                const selectedVariantStock = selectedVariant ? selectedProduct.variants.find((v) => v.id === selectedVariant)?.stock ?? 0 : 0;
+                const selectedVariantSoldOut = !!selectedVariant && selectedVariantStock <= 0;
+                const selectedVariantQuantityExceeded = !!selectedVariant && quantity > selectedVariantStock;
+                const noVariantQuantityExceeded = selectedProduct.variants.length === 0 && quantity > selectedProduct.stock;
+                const disabled = noVariantNoStock || variantNotSelected || selectedVariantSoldOut || selectedVariantQuantityExceeded || noVariantQuantityExceeded;
                 const label = noVariantNoStock || selectedVariantSoldOut
                   ? "Agotado"
                   : variantNotSelected
                     ? `Seleccioná un ${selectedProduct.category === "Accesorios" ? "color" : "aroma"}`
-                    : "Agregar al carrito";
+                    : selectedVariantQuantityExceeded || noVariantQuantityExceeded
+                      ? "Sin stock"
+                      : "Agregar al carrito";
                 return (
                   <button
                     onClick={addToCart}

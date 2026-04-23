@@ -50,6 +50,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCart((prev) => {
       const existing = prev.find((i) => i.product.id === product.id && i.variantId === variantId);
       const variant = product.variants.find((v) => v.id === variantId);
+      const availableStock = variant ? variant.stock : product.stock;
+      const currentQuantity = existing ? existing.quantity : 0;
+      if (currentQuantity + quantity > availableStock) {
+        return prev;
+      }
       if (existing) {
         return prev.map((i) =>
           i.product.id === product.id && i.variantId === variantId
@@ -68,11 +73,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const updateQuantity = useCallback((productId: string, variantId: string | null, delta: number) => {
     setCart((prev) =>
       prev
-        .map((i) =>
-          i.product.id === productId && i.variantId === variantId
-            ? { ...i, quantity: Math.max(0, i.quantity + delta) }
-            : i
-        )
+        .map((i) => {
+          if (i.product.id === productId && i.variantId === variantId) {
+            const variant = i.product.variants.find((v) => v.id === variantId);
+            const availableStock = variant ? variant.stock : i.product.stock;
+            const newQuantity = Math.max(0, Math.min(availableStock, i.quantity + delta));
+            return { ...i, quantity: newQuantity };
+          }
+          return i;
+        })
         .filter((i) => i.quantity > 0)
     );
   }, []);

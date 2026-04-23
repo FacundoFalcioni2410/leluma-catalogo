@@ -22,6 +22,43 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
   try {
     const order = await prisma.$transaction(async (tx) => {
+      const currentOrder = await tx.order.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+
+      if (status !== undefined && currentOrder) {
+        if (currentOrder.status === "PENDING" && status === "CONFIRMED") {
+          for (const item of currentOrder.items) {
+            if (item.variantId) {
+              await tx.variant.update({
+                where: { id: item.variantId },
+                data: { stock: { decrement: item.quantity } },
+              });
+            } else {
+              await tx.product.update({
+                where: { id: item.productId },
+                data: { stock: { decrement: item.quantity } },
+              });
+            }
+          }
+        } else if (currentOrder.status === "CONFIRMED" && status === "PENDING") {
+          for (const item of currentOrder.items) {
+            if (item.variantId) {
+              await tx.variant.update({
+                where: { id: item.variantId },
+                data: { stock: { increment: item.quantity } },
+              });
+            } else {
+              await tx.product.update({
+                where: { id: item.productId },
+                data: { stock: { increment: item.quantity } },
+              });
+            }
+          }
+        }
+      }
+
       if (items !== undefined) {
         const total = (items as Array<{ price: number; quantity: number }>).reduce(
           (sum, item) => sum + item.price * item.quantity,
