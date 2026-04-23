@@ -53,22 +53,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    for (const item of items) {
-      const product = products.find((p) => p.id === item.productId);
-      if (!product) continue;
-      if (item.variantId) {
-        await prisma.variant.update({
-          where: { id: item.variantId },
-          data: { stock: { decrement: item.quantity } },
-        });
-      } else {
-        await prisma.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } },
-        });
-      }
-    }
-
     return NextResponse.json({ id: order.id });
   } catch (err) {
     console.error("Order create error:", err);
