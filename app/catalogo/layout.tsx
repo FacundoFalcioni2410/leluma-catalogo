@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { CartProvider } from "@/app/context/CartContext";
 
 export const metadata: Metadata = {
   title: "Leluma — Catálogo de productos",
   description:
-    "Explorá el catálogo de Leluma. Ingresá y conocé nuestra amplia variedad de productos!!!",
+    "Leluma - Catálogo mayorista de productos",
   keywords: [
     "Leluma",
     "velas artesanales",
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Leluma — Catálogo de productos",
     description:
-      "Explorá el catálogo de Leluma. Ingresá y conocé nuestra amplia variedad de productos!!!",
+      "Leluma - Catálogo mayorista de productos",
     type: "website",
     locale: "es_AR",
     images: [
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: "Leluma — Catálogo de productos",
     description:
-      "Explorá el catálogo de Leluma. Ingresá y conocé nuestra amplia variedad de productos!!!",
+      "Leluma - Catálogo mayorista de productos",
     images: ["/logo.png"],
   },
   alternates: {
@@ -41,5 +42,5 @@ export const metadata: Metadata = {
 };
 
 export default function CatalogoLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <CartProvider>{children}</CartProvider>;
 }

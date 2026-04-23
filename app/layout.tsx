@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     default: "Leluma",
     template: "%s | Leluma",
   },
-  description: "Explorá el catálogo de Leluma. Ingresá y conocé nuestra amplia variedad de productos!!!.",
+  description: "Leluma - Catálogo mayorista de productos",
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? "https://leluma.com.ar"),
   openGraph: {
     siteName: "Leluma",

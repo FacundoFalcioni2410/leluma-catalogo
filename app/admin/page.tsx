@@ -7,6 +7,14 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Link
+          href="/admin/orders"
+          className="bg-white p-4 rounded-lg shadow-sm border border-[#fa6e83] hover:shadow-md transition-shadow"
+        >
+          <h2 className="font-medium text-[#fa6e83]">Pedidos</h2>
+          <p className="text-sm text-gray-600 mt-1">Ver y gestionar pedidos de clientes</p>
+        </Link>
+
+        <Link
           href="/admin/products"
           className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
         >

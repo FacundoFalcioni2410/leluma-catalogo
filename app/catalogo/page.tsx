@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import CategoryFilter from "@/app/components/CategoryFilter";
+import { useCart } from "@/app/context/CartContext";
 
 type Product = {
   id: string;
@@ -28,8 +29,6 @@ type Category = {
   children?: Array<{ id: string; name: string }>;
 };
 
-type CartItem = { product: Product; variantId: string | null; variantName: string | null; quantity: number };
-
 function stripHtml(html: string): string {
   if (!html) return "";
   return html.replace(/<[^>]*>/g, "").trim();
@@ -50,6 +49,7 @@ function getInitialParams() {
 
 export default function CatalogPage() {
   const router = useRouter();
+  const { cart, cartCount, cartTotal, addToCart: ctxAddToCart, removeFromCart, updateQuantity, clearCart } = useCart();
   const [hydrated, setHydrated] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -61,12 +61,14 @@ export default function CatalogPage() {
   const [search, setSearch] = useState("");
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     const params = getInitialParams();
@@ -195,66 +197,48 @@ const handleClearFilters = () => {
 
   const addToCart = () => {
     if (!selectedProduct) return;
-    
-    setCart((prev) => {
-      const existing = prev.find(
-        (item) => item.product.id === selectedProduct.id && item.variantId === selectedVariant
-      );
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === selectedProduct.id && item.variantId === selectedVariant
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      }
-      const variant = selectedProduct.variants.find((v) => v.id === selectedVariant);
-      return [
-        ...prev,
-        {
-          product: selectedProduct,
-          variantId: selectedVariant,
-          variantName: variant?.option ?? null,
-          quantity: quantity,
-        },
-      ];
-    });
+    ctxAddToCart(selectedProduct, selectedVariant, quantity);
     setQuantity(1);
     setSelectedVariant(null);
   };
 
-  const removeFromCart = (productId: string, variantId: string | null) => {
-    setCart((prev) => prev.filter((item) => !(item.product.id === productId && item.variantId === variantId)));
-  };
-
-  const updateQuantity = (productId: string, variantId: string | null, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((item) =>
-          item.product.id === productId && item.variantId === variantId
-            ? { ...item, quantity: Math.max(0, item.quantity + delta) }
-            : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
-  };
-
-  const cartTotal = cart.reduce((sum, item) => {
-    const variant = item.product.variants.find((v) => v.id === item.variantId);
-    const price = variant?.price ?? item.product.price;
-    return sum + price * item.quantity;
-  }, 0);
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-
-  const whatsapp = () => {
-    if (cart.length === 0) return;
+  const openWhatsapp = (name: string) => {
     const items_list = cart
       .map((item) => {
         const variant = item.variantName ? ` (${item.variantName})` : "";
         return `- ${item.product.name}${variant} x${item.quantity}: $${(item.product.variants.find((v) => v.id === item.variantId)?.price ?? item.product.price) * item.quantity}`;
       })
       .join("%0A");
-    const message = `Hola! Quiero comprar:%0A${items_list}%0ATotal: $${cartTotal}`;
+    const message = `Hola! Soy ${encodeURIComponent(name)}, quiero comprar:%0A${items_list}%0ATotal: $${cartTotal}`;
     window.open(`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${message}`, "_blank");
+  };
+
+  const submitOrder = async () => {
+    if (!customerName.trim() || cart.length === 0) return;
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: customerName.trim(),
+          items: cart.map((item) => ({
+            productId: item.product.id,
+            variantId: item.variantId,
+            quantity: item.quantity,
+          })),
+        }),
+      });
+      if (res.ok) {
+        openWhatsapp(customerName.trim());
+        clearCart();
+        setShowCheckout(false);
+        setShowCart(false);
+        setCustomerName("");
+      }
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   if (!hydrated) {
@@ -454,13 +438,47 @@ const handleClearFilters = () => {
                   <span className="font-bold text-xl text-black">${cartTotal.toFixed(2)}</span>
                 </div>
                 <button
-                  onClick={whatsapp}
+                  onClick={() => setShowCheckout(true)}
                   className="w-full bg-[#fa6e83] text-white py-3 rounded-lg font-semibold hover:bg-[#e55a72] text-base"
                 >
                   Comprar por WhatsApp
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Checkout Modal */}
+      {showCheckout && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <h2 className="text-lg font-semibold text-black mb-1">Antes de continuar...</h2>
+            <p className="text-sm text-gray-500 mb-4">¿Cuál es tu nombre?</p>
+            <input
+              type="text"
+              placeholder="Tu nombre"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitOrder()}
+              autoFocus
+              className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#fa6e83] text-black text-base mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowCheckout(false); setCustomerName(""); }}
+                className="flex-1 py-2.5 border-2 border-gray-200 rounded-lg text-black font-medium hover:bg-gray-50 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={submitOrder}
+                disabled={!customerName.trim() || checkoutLoading}
+                className="flex-1 py-2.5 bg-[#fa6e83] text-white rounded-lg font-semibold hover:bg-[#e55a72] text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {checkoutLoading ? "Enviando..." : "Confirmar pedido"}
+              </button>
+            </div>
           </div>
         </div>
       )}
