@@ -62,12 +62,6 @@ export default function AdminProductsPage() {
             children: data.filter((ch: CategoryOption) => ch.parentId === c.id).map((ch: CategoryOption) => ({ id: ch.id, name: ch.name })),
           }));
           setCategoryOptions(withChildren);
-          if (filterCategory || filterSubCategory) {
-            const cat = withChildren.find((c: CategoryOption) => c.name === filterCategory);
-            if (cat) {
-              setFilterExpanded((prev) => new Set(prev).add(cat.id));
-            }
-          }
         }
       }
     } catch { /* ignore */ }
@@ -89,8 +83,27 @@ export default function AdminProductsPage() {
     setLoading(false);
   }, [perPage]);
 
-  useEffect(() => { if (initialized) void fetchPage(page); }, [page, initialized, filterCategory, filterSubCategory, search, perPage]);
-  useEffect(() => { void fetchCategories(); }, [filterCategory, filterSubCategory]);
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const p = parseInt(sp.get("page") ?? "1") || 1;
+    const s = sp.get("search") ?? "";
+    const cat = sp.get("category") || undefined;
+    const sub = sp.get("subCategory") || undefined;
+    if (p !== 1) setPage(p);
+    if (s) setSearch(s);
+    if (cat) setFilterCategory(cat);
+    if (sub) setFilterSubCategory(sub);
+    setInitialized(true);
+  }, []);
+
+  useEffect(() => {
+    if (!initialized) return;
+    void fetchPage(page);
+  }, [page, filterCategory, filterSubCategory, search, perPage]);
+
+  useEffect(() => {
+    void fetchCategories();
+  }, []);
 
   const toggleVisible = async (id: string, visible: boolean) => {
     setItems((prev) => prev.map((p) => p.id === id ? { ...p, visible } : p));

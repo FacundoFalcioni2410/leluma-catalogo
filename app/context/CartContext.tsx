@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
@@ -25,6 +26,8 @@ type CartContextType = {
   removeFromCart: (productId: string, variantId: string | null) => void;
   updateQuantity: (productId: string, variantId: string | null, delta: number) => void;
   clearCart: () => void;
+  triggerAnimation: () => void;
+  isAnimating: boolean;
 };
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -32,6 +35,7 @@ const CartContext = createContext<CartContextType | null>(null);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     try {
@@ -45,6 +49,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     try { localStorage.setItem("leluma_cart", JSON.stringify(cart)); } catch {}
   }, [cart, hydrated]);
+
+  const triggerAnimation = useCallback(() => {
+    setIsAnimating(true);
+    setTimeout(() => setIsAnimating(false), 300);
+  }, []);
 
   const addToCart = useCallback((product: Product, variantId: string | null, quantity: number) => {
     setCart((prev) => {
@@ -64,7 +73,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { product, variantId, variantName: variant?.option ?? null, quantity }];
     });
-  }, []);
+    triggerAnimation();
+  }, [triggerAnimation]);
 
   const removeFromCart = useCallback((productId: string, variantId: string | null) => {
     setCart((prev) => prev.filter((i) => !(i.product.id === productId && i.variantId === variantId)));
@@ -95,7 +105,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ cart, cartCount, cartTotal, addToCart, removeFromCart, updateQuantity, clearCart }}>
+    <CartContext.Provider value={{ cart, cartCount, cartTotal, addToCart, removeFromCart, updateQuantity, clearCart, triggerAnimation, isAnimating }}>
       {children}
     </CartContext.Provider>
   );

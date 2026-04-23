@@ -49,7 +49,7 @@ function getInitialParams() {
 
 export default function CatalogPage() {
   const router = useRouter();
-  const { cart, cartCount, cartTotal, addToCart: ctxAddToCart, removeFromCart, updateQuantity, clearCart } = useCart();
+  const { cart, cartCount, cartTotal, addToCart: ctxAddToCart, removeFromCart, updateQuantity, clearCart, isAnimating } = useCart();
   const [hydrated, setHydrated] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -283,7 +283,7 @@ const handleClearFilters = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-[#fa6e83] text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                  <span className={`absolute -top-1 -right-1 bg-[#fa6e83] text-white text-xs w-5 h-5 rounded-full flex items-center justify-center transition-transform ${isAnimating ? 'animate-ping' : ''}`}>
                     {cartCount}
                   </span>
                 )}

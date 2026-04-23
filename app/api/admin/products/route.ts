@@ -22,9 +22,7 @@ export async function GET(req: NextRequest) {
     const subCategory = url.searchParams.get("subCategory") || undefined;
     const search = url.searchParams.get("search") || undefined;
 
-    const where: Record<string, unknown> = {
-      category: { not: "Aromas" },
-    };
+    const where: Record<string, unknown> = {};
     if (category) where.category = category;
     if (subCategory) where.subCategory = subCategory;
     if (search) {
