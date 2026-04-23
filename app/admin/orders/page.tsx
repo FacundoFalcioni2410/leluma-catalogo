@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -26,7 +26,7 @@ type Order = {
 };
 
 type ProductVariant = { id: string; option: string; price: number | null; stock: number };
-type ProductResult = { id: string; name: string; price: number; variants: ProductVariant[] };
+type ProductResult = { id: string; name: string; price: number; stock: number; variants: ProductVariant[] };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING: "Pendiente",
@@ -65,6 +65,7 @@ export default function AdminOrdersPage() {
   const [productResults, setProductResults] = useState<ProductResult[]>([]);
   const [productSearchLoading, setProductSearchLoading] = useState(false);
   const [pickingVariant, setPickingVariant] = useState<ProductResult | null>(null);
+  const [productStockMap, setProductStockMap] = useState<Map<string, number>>(new Map());
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchOrders = useCallback(async () => {
@@ -78,9 +79,9 @@ export default function AdminOrdersPage() {
       setTotal(data.total);
     }
     setLoading(false);
-  }, []);
+  }, [statusFilter]);
 
-  useEffect(() => { fetchOrders(); }, [statusFilter]);
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
   const selectOrder = (order: Order) => {
     setSelectedOrder(order);
@@ -89,11 +90,27 @@ export default function AdminOrdersPage() {
     setEditNotes(order.notes ?? "");
   };
 
-  const startEdit = () => {
+  const startEdit = async () => {
     if (!selectedOrder) return;
     setEditedItems(selectedOrder.items.map((i) => ({ ...i })));
     setEditNotes(selectedOrder.notes ?? "");
     setEditMode(true);
+    const stockMap = new Map<string, number>();
+    for (const item of selectedOrder.items) {
+      try {
+        const res = await fetch(`/api/products/${item.productId}`);
+        if (res.ok) {
+          const product = await res.json();
+          if (item.variantId) {
+            const variant = product.variants.find((v: { id: string }) => v.id === item.variantId);
+            if (variant) stockMap.set(`${item.productId}-${item.variantId}`, variant.stock);
+          } else {
+            stockMap.set(item.productId, product.stock);
+          }
+        }
+      } catch {}
+    }
+    setProductStockMap(stockMap);
   };
 
   const cancelEdit = () => {
@@ -103,7 +120,13 @@ export default function AdminOrdersPage() {
 
   const updateItemQty = (idx: number, delta: number) => {
     setEditedItems((prev) =>
-      prev.map((item, i) => i === idx ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item)
+      prev.map((item, i) => {
+        if (i !== idx) return item;
+        const stockKey = item.variantId ? `${item.productId}-${item.variantId}` : item.productId;
+        const availableStock = productStockMap.get(stockKey) ?? 0;
+        const newQty = Math.max(1, Math.min(availableStock, item.quantity + delta));
+        return { ...item, quantity: newQty };
+      })
     );
   };
 
@@ -161,15 +184,20 @@ export default function AdminOrdersPage() {
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
   }, [productSearch, searchProducts]);
 
-  const addProductToOrder = (product: ProductResult, variant: ProductVariant | null) => {
+  const addProductToOrder = async (product: ProductResult, variant: ProductVariant | null) => {
     const price = variant?.price ?? product.price;
+    const stockKey = variant ? `${product.id}-${variant.id}` : product.id;
+    const availableStock = variant ? variant.stock : product.stock;
     const existing = editedItems.findIndex(
       (i) => i.productId === product.id && i.variantId === (variant?.id ?? null)
     );
     if (existing >= 0) {
+      const currentQty = editedItems[existing].quantity;
+      if (currentQty >= availableStock) return;
       setEditedItems((prev) =>
-        prev.map((item, i) => i === existing ? { ...item, quantity: item.quantity + 1 } : item)
+        prev.map((item, i) => i === existing ? { ...item, quantity: Math.min(availableStock, item.quantity + 1) } : item)
       );
+      setProductStockMap((prev) => new Map(prev).set(stockKey, availableStock));
     } else {
       setEditedItems((prev) => [
         ...prev,
@@ -182,6 +210,7 @@ export default function AdminOrdersPage() {
           quantity: 1,
         },
       ]);
+      setProductStockMap((prev) => new Map(prev).set(stockKey, availableStock));
     }
     setPickingVariant(null);
     setShowAddProduct(false);
@@ -329,7 +358,11 @@ export default function AdminOrdersPage() {
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Productos</h3>
               <div className="space-y-2">
-                {(editMode ? editedItems : selectedOrder.items).map((item, idx) => (
+                {(editMode ? editedItems : selectedOrder.items).map((item, idx) => {
+                  const stockKey = item.variantId ? `${item.productId}-${item.variantId}` : item.productId;
+                  const availableStock = productStockMap.get(stockKey) ?? 0;
+                  const atMaxStock = item.quantity >= availableStock;
+                  return (
                   <div
                     key={`${item.productId}-${item.variantId}-${idx}`}
                     className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
@@ -340,6 +373,9 @@ export default function AdminOrdersPage() {
                         <p className="text-xs text-[#fa6e83]">{item.variantName}</p>
                       )}
                       <p className="text-xs text-gray-500">${item.price.toFixed(2)} c/u</p>
+                      {editMode && availableStock > 0 && (
+                        <p className="text-xs text-gray-400">Stock: {availableStock}</p>
+                      )}
                     </div>
                     {editMode ? (
                       <div className="flex items-center gap-1 shrink-0">
@@ -349,10 +385,11 @@ export default function AdminOrdersPage() {
                         >
                           -
                         </button>
-                        <span className="w-7 text-center text-sm font-medium text-black">{item.quantity}</span>
+                        <span className={`w-7 text-center text-sm font-medium ${atMaxStock ? 'text-red-500' : 'text-black'}`}>{item.quantity}</span>
                         <button
                           onClick={() => updateItemQty(idx, 1)}
-                          className="w-7 h-7 rounded border border-gray-300 text-black font-bold flex items-center justify-center hover:bg-gray-100"
+                          disabled={atMaxStock}
+                          className="w-7 h-7 rounded border border-gray-300 text-black font-bold flex items-center justify-center hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           +
                         </button>
@@ -370,7 +407,8 @@ export default function AdminOrdersPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {editMode && (
