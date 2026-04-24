@@ -28,22 +28,33 @@ export async function GET(req: NextRequest) {
 
   const [count, items] = await Promise.all([
     prisma.product.count({ where }),
-    prisma.product.findMany({ where, include: { variants: true }, take: perPage, skip: (page - 1) * perPage, orderBy: [{ order: "asc" }, { createdAt: "desc" }] }),
+    prisma.product.findMany({
+      where,
+      include: { variants: true, images: { orderBy: { order: "asc" } } },
+      take: perPage,
+      skip: (page - 1) * perPage,
+      orderBy: [{ order: "asc" }, { createdAt: "desc" }],
+    }),
   ]);
 
-  const data = items.map((p) => ({
-    id: p.id,
-    hash: p.hash,
-    name: p.name,
-    price: p.price,
-    description: p.description,
-    category: p.category,
-    subCategory: p.subCategory,
-    visible: p.visible,
-    stock: p.stock ?? 0,
-    imageUrl: p.imageUrl,
-    variants: p.variants.map((v) => ({ id: v.id, name: v.name, option: v.option, price: v.price, stock: v.stock })),
-  }));
+  const data = items.map((p) => {
+    const generalImage = p.images.find((img) => !img.variantId);
+    const firstImage = generalImage ?? p.images[0];
+    return ({
+      id: p.id,
+      hash: p.hash,
+      name: p.name,
+      price: p.price,
+      description: p.description,
+      category: p.category,
+      subCategory: p.subCategory,
+      visible: p.visible,
+      stock: p.stock ?? 0,
+      imageUrl: firstImage?.url ?? null,
+      images: p.images.map((img) => ({ id: img.id, url: img.url, variantId: img.variantId ?? null })),
+      variants: p.variants.map((v) => ({ id: v.id, name: v.name, option: v.option, price: v.price, stock: v.stock })),
+    });
+  });
 
   return NextResponse.json({ total: count, page, perPage, pages: Math.ceil(count / perPage), items: data });
 }

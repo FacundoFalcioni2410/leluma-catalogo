@@ -7,7 +7,10 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await context.params;
-  const product = await prisma.product.findUnique({ where: { id }, include: { variants: true } });
+  const product = await prisma.product.findUnique({
+    where: { id },
+    include: { variants: true, images: { orderBy: { order: "asc" } } },
+  });
   if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(product);
 }
@@ -38,11 +41,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
   const { id } = await context.params;
   const body = await req.json();
-  const { name, price, description, category, subCategory, order, stock, visible, imageUrl, variants } = body;
+  const { name, price, description, category, subCategory, order, stock, visible, variants, imagesToAdd, imagesToDelete, imagesToReorder } = body;
 
   try {
-    console.log("Updating product:", id, "with data:", { name, price, category, subCategory, order, stock, visible });
-
     await prisma.$transaction(async (tx) => {
       await tx.product.update({
         where: { id },
@@ -55,15 +56,30 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           order: order ?? undefined,
           stock: stock ?? undefined,
           visible: visible ?? undefined,
-          imageUrl: imageUrl ?? undefined,
         },
       });
 
       if (variants !== undefined) {
-        await tx.variant.deleteMany({ where: { productId: id } });
-        if (variants.length > 0) {
+        type VariantInput = { id?: string; name: string; option: string; price: number | null; stock: number };
+        const incoming = variants as VariantInput[];
+        const keepIds = incoming.filter((v) => v.id).map((v) => v.id!);
+
+        // Delete variants that were removed
+        await tx.variant.deleteMany({ where: { productId: id, id: { notIn: keepIds } } });
+
+        // Update existing variants (preserve IDs so image FK references stay valid)
+        for (const v of incoming.filter((v) => v.id)) {
+          await tx.variant.update({
+            where: { id: v.id },
+            data: { name: v.name, option: v.option, price: v.price ?? null, stock: v.stock ?? 0 },
+          });
+        }
+
+        // Create brand-new variants
+        const newVariants = incoming.filter((v) => !v.id);
+        if (newVariants.length > 0) {
           await tx.variant.createMany({
-            data: variants.map((v: { name: string; option: string; price: number | null; stock: number }) => ({
+            data: newVariants.map((v) => ({
               productId: id,
               name: v.name,
               option: v.option,
@@ -73,10 +89,39 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           });
         }
       }
+
+      if (imagesToDelete?.length) {
+        await tx.productImage.deleteMany({ where: { id: { in: imagesToDelete }, productId: id } });
+      }
+
+      if (imagesToReorder?.length) {
+        await Promise.all(
+          (imagesToReorder as { id: string; order: number; variantId?: string | null }[]).map(({ id: imgId, order: imgOrder, variantId: vid }) =>
+            tx.productImage.updateMany({
+              where: { id: imgId, productId: id },
+              data: { order: imgOrder, variantId: vid ?? null },
+            })
+          )
+        );
+      }
+
+      if (imagesToAdd?.length) {
+        const existingCount = await tx.productImage.count({ where: { productId: id } });
+        await tx.productImage.createMany({
+          data: (imagesToAdd as { url: string; variantId?: string | null }[]).map((img, i) => ({
+            productId: id,
+            url: img.url,
+            variantId: img.variantId ?? null,
+            order: existingCount + i,
+          })),
+        });
+      }
     });
 
-    const updated = await prisma.product.findUnique({ where: { id }, include: { variants: true } });
-    console.log("Product updated successfully:", updated);
+    const updated = await prisma.product.findUnique({
+      where: { id },
+      include: { variants: true, images: { orderBy: { order: "asc" } } },
+    });
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Error updating product:", error);

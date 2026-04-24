@@ -9,7 +9,8 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/app/context/CartContext";
 
 type Variant = { id: string; name: string; option: string; price: number | null; stock: number };
-type Product = { id: string; hash: string; name: string; price: number; description?: string | null; imageUrl?: string | null; category: string; subCategory?: string | null; stock: number; variants: Variant[] };
+type ProductImage = { id: string; url: string; variantId?: string | null; order: number };
+type Product = { id: string; hash: string; name: string; price: number; description?: string | null; imageUrl?: string | null; images?: ProductImage[]; category: string; subCategory?: string | null; stock: number; variants: Variant[] };
 
 
 function stripHtml(html: string): string {
@@ -30,6 +31,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [showAllVariants, setShowAllVariants] = useState(false);
+  const [imgIdx, setImgIdx] = useState(0);
   const INITIAL_VARIANTS_SHOW = 5;
 
   useEffect(() => {
@@ -46,6 +48,11 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
     }
     fetchProduct();
   }, [params, router]);
+
+  const handleSelectVariant = (variantId: string) => {
+    setSelectedVariant(variantId);
+    setImgIdx(0);
+  };
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
@@ -106,7 +113,12 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
 
   if (!product) return null;
 
-  const { id: productId, name, price, description, category, subCategory, imageUrl, variants, stock } = product;
+  const { id: productId, name, price, description, category, subCategory, imageUrl, images = [], variants, stock } = product;
+
+  const allImages = selectedVariant
+    ? images.filter((img) => !img.variantId || img.variantId === selectedVariant)
+    : images.filter((img) => !img.variantId);
+  const displayImages = allImages.length > 0 ? allImages : imageUrl ? [{ id: "legacy", url: imageUrl, variantId: null, order: 0 }] : [];
   const noVariants = variants.length === 0;
   const outOfStock = noVariants && stock <= 0;
   const selectedVariantStock = selectedVariant ? variants.find((v) => v.id === selectedVariant)?.stock ?? 0 : 0;
@@ -250,13 +262,46 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
       {/* Product Content */}
       <div className="max-w-5xl mx-auto p-4 pb-24 md:p-6">
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Image */}
+          {/* Image / Carousel */}
           <div>
-            {imageUrl ? (
-              <img src={imageUrl} alt={name} className="w-full h-48 md:h-[500px] object-cover rounded-lg" />
-            ) : (
+            {displayImages.length === 0 ? (
               <div className="w-full h-48 md:h-[500px] bg-gray-100 flex items-center justify-center rounded-lg">
                 <span className="text-gray-400">Sin imagen</span>
+              </div>
+            ) : displayImages.length === 1 ? (
+              <img src={displayImages[0].url} alt={name} className="w-full h-48 md:h-[500px] object-cover rounded-lg" />
+            ) : (
+              <div className="relative">
+                <img
+                  src={displayImages[imgIdx].url}
+                  alt={`${name} ${imgIdx + 1}`}
+                  className="w-full h-48 md:h-[500px] object-cover rounded-lg"
+                />
+                <button
+                  onClick={() => setImgIdx((i) => (i - 1 + displayImages.length) % displayImages.length)}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setImgIdx((i) => (i + 1) % displayImages.length)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <div className="flex justify-center gap-1.5 mt-2">
+                  {displayImages.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setImgIdx(i)}
+                      className={`w-2 h-2 rounded-full transition-colors ${i === imgIdx ? "bg-[#fa6e83]" : "bg-gray-300"}`}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -291,7 +336,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                     return (
                       <button
                         key={variant.id}
-                        onClick={() => hasStock && setSelectedVariant(variant.id)}
+                        onClick={() => hasStock && handleSelectVariant(variant.id)}
                         disabled={!hasStock}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
                           selectedVariant === variant.id

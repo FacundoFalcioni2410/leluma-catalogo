@@ -5,7 +5,7 @@ import ProductDetail from "./ProductDetail";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const product = await prisma.product.findUnique({ where: { id }, include: { variants: true } });
+  const product = await prisma.product.findUnique({ where: { id }, include: { variants: true, images: { orderBy: { order: "asc" }, take: 1 } } });
 
   if (!product) {
     return { title: "Producto no encontrado" };
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     openGraph: {
       title,
       description,
-      images: product.imageUrl ? [{ url: product.imageUrl, alt: product.name }] : [],
+      images: product.images[0] ? [{ url: product.images[0].url, alt: product.name }] : [],
       type: "website",
     },
     alternates: {

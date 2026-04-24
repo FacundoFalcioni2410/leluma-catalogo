@@ -31,7 +31,6 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           category: category ?? undefined,
           subCategory: subCategory ?? null,
           visible: visible ?? undefined,
-          imageUrl: imageUrl ?? undefined,
         },
       });
 

@@ -9,7 +9,7 @@ export async function GET() {
   }
 
   const products = await prisma.product.findMany({
-    include: { variants: true },
+    include: { variants: true, images: { orderBy: { order: "asc" }, take: 1 } },
     orderBy: { createdAt: "asc" },
   });
 
@@ -41,7 +41,7 @@ export async function GET() {
   for (const product of products) {
     const categoryPath = [product.category, product.subCategory].filter(Boolean).join(" > ");
     const visibility = product.visible ? "Visible" : "Oculto";
-    const imageUrl = product.imageUrl?.startsWith("data:") ? "" : (product.imageUrl ?? "");
+    const imageUrl = product.images[0]?.url ?? "";
 
     if (product.variants.length === 0) {
       rows.push(

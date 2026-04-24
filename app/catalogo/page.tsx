@@ -20,6 +20,7 @@ type Product = {
   subCategory?: string | null;
   visible: boolean;
   stock: number;
+  images?: Array<{ id: string; url: string; variantId?: string | null; order: number }>;
   variants: Array<{ id: string; name: string; option: string; price: number | null; stock: number }>;
 };
 
@@ -69,6 +70,7 @@ export default function CatalogPage() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [carouselIdx, setCarouselIdx] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const params = getInitialParams();
@@ -641,19 +643,52 @@ const handleClearFilters = () => {
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {products.filter((p) => p.visible).map((p) => {
               const outOfStock = p.variants.length === 0 && p.stock <= 0;
+              const generalImages = (p.images ?? []).filter((img) => !img.variantId);
+              const productImages = generalImages.length > 0 ? generalImages : p.imageUrl ? [{ id: "legacy", url: p.imageUrl }] : [];
+              const currentIdx = carouselIdx[p.id] ?? 0;
+              const hasMultiple = productImages.length > 1;
+
               return (
-              <Link
+              <div
                 key={p.id}
-                href={`/catalogo/${p.id}`}
                 className={`bg-white rounded-lg overflow-hidden transition-shadow flex flex-col border border-gray-200 ${outOfStock ? "opacity-50 cursor-default" : "hover:shadow-lg cursor-pointer"}`}
               >
-                {p.imageUrl ? (
-                  <img src={p.imageUrl} alt={p.name} className="w-full h-32 sm:h-40 object-cover" />
-                ) : (
-                  <div className="w-full h-32 sm:h-40 bg-gray-100 flex items-center justify-center">
-                    <span className="text-gray-400 text-sm">200×200</span>
-                  </div>
-                )}
+                <div className="relative">
+                  <Link href={`/catalogo/${p.id}`}>
+                    {productImages.length > 0 ? (
+                      <img src={productImages[currentIdx]?.url} alt={p.name} className="w-full h-32 sm:h-40 object-cover" />
+                    ) : (
+                      <div className="w-full h-32 sm:h-40 bg-gray-100 flex items-center justify-center">
+                        <span className="text-gray-400 text-sm">200×200</span>
+                      </div>
+                    )}
+                  </Link>
+                  {hasMultiple && (
+                    <>
+                      <button
+                        onClick={(e) => { e.preventDefault(); setCarouselIdx((prev) => ({ ...prev, [p.id]: (currentIdx - 1 + productImages.length) % productImages.length })); }}
+                        className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-colors text-xs"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        onClick={(e) => { e.preventDefault(); setCarouselIdx((prev) => ({ ...prev, [p.id]: (currentIdx + 1) % productImages.length })); }}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-colors text-xs"
+                      >
+                        ›
+                      </button>
+                      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1">
+                        {productImages.map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={(e) => { e.preventDefault(); setCarouselIdx((prev) => ({ ...prev, [p.id]: i })); }}
+                            className={`w-1.5 h-1.5 rounded-full transition-colors ${i === currentIdx ? "bg-white" : "bg-white/50"}`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
                 <div className="p-3 flex flex-col flex-1">
                   <p className="text-xs text-black mb-1 truncate">{p.category}</p>
                   <h3 className="font-medium text-sm text-black mb-1 line-clamp-2">{p.name}</h3>
@@ -664,15 +699,17 @@ const handleClearFilters = () => {
                     <p className="text-lg sm:text-xl font-bold text-black mb-2">
                       ${p.price.toFixed(2)}
                     </p>
-                    <button
-                      disabled={outOfStock}
-                      className={`w-full py-2 sm:py-2.5 rounded-lg text-sm font-medium transition-colors ${outOfStock ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-[#fa6e83] text-white hover:bg-[#e55a72]"}`}
-                    >
-                      {outOfStock ? "Sin stock" : "Ver producto"}
-                    </button>
+                    <Link href={`/catalogo/${p.id}`} className="block">
+                      <button
+                        disabled={outOfStock}
+                        className={`w-full py-2 sm:py-2.5 rounded-lg text-sm font-medium transition-colors ${outOfStock ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-[#fa6e83] text-white hover:bg-[#e55a72]"}`}
+                      >
+                        {outOfStock ? "Sin stock" : "Ver producto"}
+                      </button>
+                    </Link>
                   </div>
                 </div>
-              </Link>
+              </div>
               );
             })}
           </div>

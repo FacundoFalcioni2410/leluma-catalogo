@@ -2,13 +2,14 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import Link from "next/link";
 
 type Variant = { id?: string; name: string; option: string; price: number | null; stock: number };
 type CategoryOption = { id: string; name: string; parentId: string | null };
+type ImageEntry = { id?: string; url: string; order: number; variantId?: string | null; pendingFile?: File; previewUrl?: string };
 type Product = {
   id: string;
   hash: string;
@@ -18,24 +19,24 @@ type Product = {
   category: string;
   subCategory?: string | null;
   visible: boolean;
-  imageUrl?: string | null;
   order: number;
   stock: number;
   variants: Variant[];
+  images: { id: string; url: string; order: number }[];
 };
 
 export default function EditProductPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragIdx = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const [product, setProduct] = useState<Product | null>(null);
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +50,11 @@ export default function EditProductPage() {
   const [order, setOrder] = useState(999999);
   const [stock, setStock] = useState(0);
   const [visible, setVisible] = useState(true);
-  const [imageUrl, setImageUrl] = useState("");
   const [variants, setVariants] = useState<Variant[]>([]);
+
+  // image state
+  const [images, setImages] = useState<ImageEntry[]>([]);
+  const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
 
   const variantLabel = category === "Accesorios" ? "Color" : "Aroma";
   const variantLabelPlural = category === "Accesorios" ? "Colores" : "Aromas";
@@ -113,37 +117,108 @@ export default function EditProductPage() {
       setOrder(p.order ?? 999999);
       setStock(p.stock ?? 0);
       setVisible(p.visible ?? true);
-      setImageUrl(p.imageUrl ?? "");
       setVariants(p.variants ?? []);
+      setImages((p.images ?? []).map((img: { id: string; url: string; order: number; variantId?: string | null }) => ({ id: img.id, url: img.url, order: img.order, variantId: img.variantId ?? null })));
       setCategoryOptions(Array.isArray(cats) ? cats : []);
       setLoading(false);
     }).catch(() => { setError("Error al cargar el producto"); setLoading(false); });
   }, [id]);
 
+  const handleAddImages = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    const newEntries: ImageEntry[] = files.map((file, i) => ({
+      url: URL.createObjectURL(file),
+      order: images.length + i,
+      variantId: null,
+      pendingFile: file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setImages((prev) => [...prev, ...newEntries]);
+    e.target.value = "";
+  };
+
+  const handleSetVariant = (index: number, variantId: string | null) => {
+    setImages((prev) => prev.map((img, i) => i === index ? { ...img, variantId } : img));
+  };
+
+  const handleDragStart = (index: number) => {
+    dragIdx.current = index;
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (dragIdx.current !== null && dragIdx.current !== index) {
+      setDragOverIdx(index);
+    }
+  };
+
+  const handleDrop = (index: number) => {
+    const from = dragIdx.current;
+    if (from === null || from === index) { dragIdx.current = null; setDragOverIdx(null); return; }
+    setImages((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(index, 0, moved);
+      return next;
+    });
+    dragIdx.current = null;
+    setDragOverIdx(null);
+  };
+
+  const handleDragEnd = () => {
+    dragIdx.current = null;
+    setDragOverIdx(null);
+  };
+
+  const handleRemoveImage = (index: number) => {
+    const img = images[index];
+    if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+    if (img.id) setDeletedImageIds((prev) => [...prev, img.id!]);
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const save = async () => {
     setSaving(true);
     setSaved(false);
-    let finalImageUrl = imageUrl;
-    if (pendingFile && product) {
-      try {
-        setUploading(true);
-        const ext = pendingFile.name.split(".").pop() ?? "jpg";
-        const blob = await upload(`products/${product.id}-${Date.now()}.${ext}`, pendingFile, {
-          access: "public",
-          handleUploadUrl: "/api/admin/upload",
-        });
-        finalImageUrl = blob.url;
-        setImageUrl(blob.url);
-        setPendingFile(null);
-        if (previewUrl) { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }
-      } catch {
-        setError("Error al subir la imagen");
-        setSaving(false);
-        setUploading(false);
-        return;
-      }
-      setUploading(false);
+    setError(null);
+
+    const hasGeneralImage = images.some((img) => !img.variantId);
+    if (!hasGeneralImage) {
+      setError("Debe haber al menos una imagen general (sin variante)");
+      setSaving(false);
+      return;
     }
+
+    // Upload any pending files
+    const uploadedImages = [...images];
+    for (let i = 0; i < uploadedImages.length; i++) {
+      const img = uploadedImages[i];
+      if (img.pendingFile && product) {
+        try {
+          const ext = img.pendingFile.name.split(".").pop() ?? "jpg";
+          const blob = await upload(`products/${product.id}-${Date.now()}-${i}.${ext}`, img.pendingFile, {
+            access: "public",
+            handleUploadUrl: "/api/admin/upload",
+          });
+          if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+          uploadedImages[i] = { ...img, url: blob.url, pendingFile: undefined, previewUrl: undefined };
+        } catch {
+          setError("Error al subir una imagen");
+          setSaving(false);
+          return;
+        }
+      }
+    }
+
+    const imagesToAdd = uploadedImages
+      .filter((img) => !img.id)
+      .map((img) => ({ url: img.url, variantId: img.variantId ?? null }));
+
+    const imagesToReorder = uploadedImages
+      .filter((img) => img.id)
+      .map((img, i) => ({ id: img.id!, order: i, variantId: img.variantId ?? null }));
+
     const res = await fetch(`/api/admin/products/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -151,12 +226,23 @@ export default function EditProductPage() {
         name, price, description,
         category, subCategory: subCategory || null,
         order, stock: variants.length === 0 ? stock : undefined,
-        visible, imageUrl: finalImageUrl || null, variants,
+        visible, variants,
+        imagesToAdd,
+        imagesToDelete: deletedImageIds,
+        imagesToReorder,
       }),
     });
+
     setSaving(false);
-    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500); }
-    else setError("Error al guardar");
+    if (res.ok) {
+      const updated = await res.json();
+      setImages((updated.images ?? []).map((img: { id: string; url: string; order: number; variantId?: string | null }) => ({ id: img.id, url: img.url, order: img.order, variantId: img.variantId ?? null })));
+      setDeletedImageIds([]);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } else {
+      setError("Error al guardar");
+    }
   };
 
   const handleDelete = async () => {
@@ -165,16 +251,6 @@ export default function EditProductPage() {
     setDeleting(false);
     if (res.ok) router.push("/admin/products");
     else setError("Error al eliminar");
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    const local = URL.createObjectURL(file);
-    setPendingFile(file);
-    setPreviewUrl(local);
-    setImageUrl(local);
   };
 
   const updateVariant = (i: number, field: keyof Variant, value: string | number | null) =>
@@ -222,31 +298,102 @@ export default function EditProductPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {/* Image */}
-        <label className="h-48 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center relative cursor-pointer group overflow-hidden block">
-          {uploading ? (
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-6 h-6 border-2 border-[#fa6e83] border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs text-gray-500">Subiendo...</span>
-            </div>
-          ) : imageUrl ? (
-            <>
-              <img src={imageUrl} alt="" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-              <span className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm text-gray-700 rounded-full px-4 py-1.5 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                Cambiar imagen
-              </span>
-            </>
-          ) : (
-            <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-[#fa6e83] transition-colors">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* Images section */}
+        <div className="p-4 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+              Fotos
+              {images.length > 0 && (
+                <span className="ml-2 bg-[#fa6e83] text-white rounded-full px-2 py-0.5 text-xs font-normal normal-case">{images.length}</span>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-xs font-medium text-[#fa6e83] hover:text-[#e55a72] hover:underline transition-all"
+            >
+              + Agregar foto
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleAddImages}
+              className="hidden"
+            />
+          </div>
+
+          {images.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full h-32 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-[#fa6e83] hover:border-[#fa6e83] transition-all"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span className="text-sm font-medium">+ Agregar imagen</span>
+              <span className="text-sm font-medium">Agregar fotos</span>
+            </button>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {images.map((img, i) => {
+                const isGeneral = !img.variantId;
+                const firstGeneralIndex = images.findIndex((im) => !im.variantId);
+                const isPrincipal = isGeneral && i === firstGeneralIndex;
+                return (
+                <div
+                  key={img.id ?? img.previewUrl ?? i}
+                  draggable
+                  onDragStart={() => handleDragStart(i)}
+                  onDragOver={(e) => handleDragOver(e, i)}
+                  onDrop={() => handleDrop(i)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex flex-col gap-1 cursor-grab active:cursor-grabbing transition-all ${
+                    dragOverIdx === i ? "ring-2 ring-[#fa6e83] rounded-lg scale-95" : ""
+                  }`}
+                >
+                  <div className="relative aspect-square group">
+                    <img
+                      src={img.previewUrl ?? img.url}
+                      alt=""
+                      className="w-full h-full object-cover rounded-lg border border-gray-200 pointer-events-none"
+                    />
+                    {isPrincipal && (
+                      <span className="absolute bottom-1 left-1 bg-[#fa6e83] text-white text-[10px] font-medium px-1.5 py-0.5 rounded pointer-events-none">
+                        Principal
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(i)}
+                      className="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  {variants.length > 0 && (
+                    <select
+                      value={img.variantId ?? ""}
+                      onChange={(e) => handleSetVariant(i, e.target.value || null)}
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-700 focus:outline-none focus:border-[#fa6e83] cursor-pointer"
+                    >
+                      <option value="">Todas</option>
+                      {variants.map((v, vi) => (
+                        <option key={v.id ?? vi} value={v.id ?? ""}>{v.option || `Variante ${vi + 1}`}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                );
+              })}
             </div>
           )}
-          <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-        </label>
+        </div>
 
         {/* Fields */}
         <div className="p-6 space-y-4">
@@ -380,11 +527,13 @@ export default function EditProductPage() {
         {/* Save */}
         <button
           onClick={save}
-          disabled={saving}
+          disabled={saving || !images.some((img) => !img.variantId)}
           className={`fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 z-50 ${
             saved
               ? "bg-green-500 text-white"
-              : "bg-gradient-to-r from-[#fa6e83] to-[#fa6e83] text-white hover:from-[#e55a72] hover:to-[#e55a72]"
+              : !images.some((img) => !img.variantId)
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-gradient-to-r from-[#fa6e83] to-[#fa6e83] text-white hover:from-[#e55a72] hover:to-[#e55a72]"
           }`}
         >
           {saving ? (
@@ -396,6 +545,13 @@ export default function EditProductPage() {
           )}
         </button>
 
+        {!images.some((img) => !img.variantId) && images.length > 0 && (
+          <div className="fixed bottom-24 right-6 max-w-xs bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-4 py-3 rounded-lg shadow-lg z-50">
+            <p className="font-medium mb-1">Imagen general requerida</p>
+            <p className="text-yellow-700">Al menos una imagen debe estar asignada a "Todas" (sin variante)</p>
+          </div>
+        )}
+
         {/* Delete */}
         <button
           onClick={() => setConfirmDelete(true)}
@@ -406,6 +562,13 @@ export default function EditProductPage() {
           </svg>
         </button>
       </div>
+
+      {/* Error toast */}
+      {error && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-red-500 text-white text-sm px-4 py-2 rounded-full shadow-lg z-50">
+          {error}
+        </div>
+      )}
 
       {/* Confirm delete modal */}
       {confirmDelete && (

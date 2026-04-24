@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const product = await prisma.product.findUnique({
     where: { id, visible: true },
-    include: { variants: true },
+    include: { variants: true, images: { orderBy: { order: "asc" } } },
   });
 
   if (!product) {
@@ -28,7 +28,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     subCategory: product.subCategory,
     visible: product.visible,
     stock: product.stock ?? 0,
-    imageUrl: product.imageUrl,
+    imageUrl: product.images[0]?.url ?? null,
+    images: product.images.map((img) => ({ id: img.id, url: img.url, variantId: img.variantId ?? null, order: img.order })),
     variants: product.variants.map((v) => ({ id: v.id, name: v.name, option: v.option, price: v.price, stock: v.stock })),
   };
 

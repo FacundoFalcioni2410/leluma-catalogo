@@ -16,6 +16,7 @@ type Product = {
   subCategory?: string | null;
   visible: boolean;
   imageUrl?: string | null;
+  images?: { id: string; url: string }[];
   order: number;
   stock: number;
   variants: { id: string; stock: number }[];
@@ -276,8 +277,8 @@ export default function AdminProductsPage() {
                     return (
                       <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-4 py-3">
-                          {p.imageUrl ? (
-                            <img src={p.imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                          {(p.images?.[0]?.url ?? p.imageUrl) ? (
+                            <img src={p.images?.[0]?.url ?? p.imageUrl!} alt="" className="w-10 h-10 rounded-lg object-cover" />
                           ) : (
                             <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
                               <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -34,12 +34,12 @@ export async function GET(req: NextRequest) {
     }
 
     const count = await prisma.product.count({ where });
-    const items = await prisma.product.findMany({ 
-      where, 
-      take: perPage, 
-      skip: (page - 1) * perPage, 
+    const items = await prisma.product.findMany({
+      where,
+      take: perPage,
+      skip: (page - 1) * perPage,
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
-      include: { variants: true },
+      include: { variants: true, images: { orderBy: { order: "asc" }, take: 1 } },
     });
 
     const data = items.map((p) => ({
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       order: p.order ?? 999999,
       stock: p.stock ?? 0,
       visible: p.visible,
-      imageUrl: p.imageUrl,
+      images: p.images.map((img) => ({ id: img.id, url: img.url })),
       variants: p.variants.map((v) => ({
         id: v.id,
         name: v.name,
