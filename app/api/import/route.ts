@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
             subCategory: string | null;
             variantLabel: string | null;
             visible: boolean;
-            imageUrl: string | null;
+            imageUrls: string[];
             stock: number;
             variants: Array<{ name: string; option: string; stock: number; price: number | null }>;
           };
@@ -103,8 +103,10 @@ export async function POST(req: NextRequest) {
               .toString()
               .toLowerCase()
               .includes("visible");
-            const rawImage = (row.Imagen ?? "").trim();
-            const imageUrl = rawImage && !rawImage.startsWith("data:") ? rawImage : null;
+            const imageUrls = (row.Imagen ?? "")
+              .split("|")
+              .map((u) => u.trim())
+              .filter((u) => u && !u.startsWith("data:"));
 
             const key = id ?? hash;
             if (!key || !name) continue;
@@ -121,7 +123,7 @@ export async function POST(req: NextRequest) {
                 subCategory,
                 variantLabel,
                 visible,
-                imageUrl,
+                imageUrls,
                 stock: variantLabel && option ? 0 : stock,
                 variants: [],
               });
@@ -132,12 +134,15 @@ export async function POST(req: NextRequest) {
             }
           }
 
+          const buildImageData = (urls: string[]) =>
+            urls.map((url, i) => ({ url, order: i }));
+
           await prisma.$transaction(async (tx) => {
             for (const product of map.values()) {
+              const imageCreate = buildImageData(product.imageUrls);
               if (product.id) {
-                // Upsert by id: update the product and replace its variants
                 await tx.variant.deleteMany({ where: { productId: product.id } });
-                await tx.product.upsert({
+                const upserted = await tx.product.upsert({
                   where: { id: product.id },
                   update: {
                     hash: product.hash,
@@ -165,8 +170,13 @@ export async function POST(req: NextRequest) {
                     variants: { create: product.variants },
                   },
                 });
+                if (imageCreate.length > 0) {
+                  await tx.productImage.deleteMany({ where: { productId: upserted.id } });
+                  await tx.productImage.createMany({
+                    data: imageCreate.map((img) => ({ ...img, productId: upserted.id })),
+                  });
+                }
               } else {
-                // Upsert by hash for rows without id
                 const existing = await tx.product.findUnique({ where: { hash: product.hash } });
                 if (existing) {
                   await tx.variant.deleteMany({ where: { productId: existing.id } });
@@ -184,8 +194,14 @@ export async function POST(req: NextRequest) {
                       variants: { create: product.variants },
                     },
                   });
+                  if (imageCreate.length > 0) {
+                    await tx.productImage.deleteMany({ where: { productId: existing.id } });
+                    await tx.productImage.createMany({
+                      data: imageCreate.map((img) => ({ ...img, productId: existing.id })),
+                    });
+                  }
                 } else {
-                  await tx.product.create({
+                  const created = await tx.product.create({
                     data: {
                       hash: product.hash,
                       name: product.name,
@@ -199,6 +215,11 @@ export async function POST(req: NextRequest) {
                       variants: { create: product.variants },
                     },
                   });
+                  if (imageCreate.length > 0) {
+                    await tx.productImage.createMany({
+                      data: imageCreate.map((img) => ({ ...img, productId: created.id })),
+                    });
+                  }
                 }
               }
             }
